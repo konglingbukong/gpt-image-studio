@@ -1,0 +1,17 @@
+{
+  "api_key": "",
+  "api_url": "https://api.openai.com/v1",
+  "proxy": "",
+  "model": "gpt-image-2.5-sunburst",
+  "size": "2K 16:9",
+  "quality": "high",
+  "format": "png",
+  "moderation": "auto",
+  "out_dir": "",
+  "rates": {"text_in": 5, "image_in": 8, "image_out": 30},
+  "fx_code": "",
+  "fx_rate": 0,
+  "lang": "en",
+  "agent_name": "AI assistant",
+  "allowed_origins": ["https://YOUR-GITHUB-NAME.github.io"]
+}

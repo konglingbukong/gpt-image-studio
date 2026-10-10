@@ -1,0 +1,50 @@
+name: Integration request / 适配申请
+description: Want to use this tool from an AI agent that isn't supported yet? Fill this in and we'll wire it up.
+title: "[Integration] "
+labels: ["integration"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check [docs/INTEGRATIONS.md](../blob/main/docs/INTEGRATIONS.md) first — if your agent supports MCP or can run shell commands, it probably works already.
+        Any language is fine. / 用中文、日本語、한국어、Русский 填写都可以。
+  - type: input
+    id: agent
+    attributes:
+      label: Agent name & version
+      placeholder: e.g. Cursor 1.8, Trae 2.1, SomeApp desktop 3.0
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [Windows, macOS, Linux]
+      multiple: true
+    validations:
+      required: true
+  - type: checkboxes
+    id: caps
+    attributes:
+      label: What does it support? (leave unsure ones unchecked)
+      options:
+        - label: MCP (stdio)
+        - label: MCP (HTTP / SSE)
+        - label: SKILL.md skills
+        - label: Running shell commands
+        - label: A global instructions file (e.g. AGENTS.md / GEMINI.md)
+  - type: input
+    id: config
+    attributes:
+      label: Config file / skills folder location
+      placeholder: e.g. ~/.xxx/mcp.json, ~/.xxx/skills/
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you tried and what happened
+      description: Paste any errors (redact your API key).
+  - type: textarea
+    id: docs
+    attributes:
+      label: Docs links
+      description: Links to the agent's MCP or plugin configuration docs, if any.

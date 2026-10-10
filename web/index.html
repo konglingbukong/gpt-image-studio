@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPT Image Studio</title>
+<style>
+:root{
+  --bg:#f4f4f2; --panel:#ffffff; --panel-2:#f7f7f5; --line:#e6e5e1; --text:#1d1c1a; --muted:#7a786f; --faint:#a8a69d;
+  --accent:#d9622b; --accent-2:#c4521f; --accent-soft:#fcebe2; --chip:#efeeea; --chip-h:#e6e4df;
+  --ok:#2f7d50; --ok-soft:#e3f2e8; --warn:#b7791f; --warn-soft:#fbf0dc; --danger:#c0392b; --danger-soft:#fbe5e2;
+  --shadow:0 1px 2px rgba(20,20,10,.05),0 6px 20px rgba(20,20,10,.06);
+  --shadow-lg:0 10px 40px rgba(20,20,10,.16);
+  --r:14px;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#151513; --panel:#201f1d; --panel-2:#1a1918; --line:#33322e; --text:#ecebe6; --muted:#9c9a91; --faint:#6f6d66;
+    --accent:#ee7d47; --accent-2:#f69564; --accent-soft:#3b281e; --chip:#2b2a27; --chip-h:#353430;
+    --ok:#6cc18c; --ok-soft:#1d3125; --warn:#e3b05c; --warn-soft:#3a2f1c; --danger:#e8786b; --danger-soft:#3c211e;
+    --shadow:0 1px 2px rgba(0,0,0,.35),0 6px 20px rgba(0,0,0,.3); --shadow-lg:0 10px 40px rgba(0,0,0,.5);}
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);
+  font:14px/1.55 -apple-system,"Segoe UI","Microsoft YaHei UI","PingFang SC",sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+svg{flex:none}
+.ic{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* 顶栏 */
+.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);
+  border-bottom:1px solid transparent}
+.top.scrolled{border-bottom-color:var(--line)}
+.top-in{max-width:1400px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;margin-right:auto;white-space:nowrap}
+.brand .logo{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#f0a35e);display:grid;place-items:center;color:#fff}
+.brand small{font-weight:400;color:var(--muted);font-size:12px}
+.pill{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:999px;
+  padding:5px 12px;font-size:13px;white-space:nowrap;box-shadow:var(--shadow)}
+.pill b{font-variant-numeric:tabular-nums}
+.pill .sep{width:1px;height:14px;background:var(--line)}
+.pill.low{border-color:var(--warn);background:var(--warn-soft)}
+.pill.click{cursor:pointer}
+.pill.click:hover{border-color:var(--accent)}
+.muted{color:var(--muted)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block}
+.dot.off{background:var(--danger)}
+.iconbtn{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--panel);display:grid;place-items:center;
+  color:var(--muted);box-shadow:var(--shadow)}
+.iconbtn:hover{color:var(--accent);border-color:var(--accent)}
+@media (max-width:760px){.brand small,.hide-sm{display:none}.top-in{padding:10px 14px}}
+
+/* 主区 */
+.wrap{max-width:1400px;margin:0 auto;padding:8px 24px 260px}
+@media (max-width:760px){.wrap{padding:8px 14px 300px}}
+.toolbar{display:flex;gap:10px;align-items:center;margin:8px 0 16px}
+.search{flex:1;display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:0 12px;box-shadow:var(--shadow)}
+.search input{flex:1;border:0;background:transparent;outline:none;padding:9px 0}
+.stats{font-size:12px;color:var(--muted);white-space:nowrap}
+
+.jobs{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+.jobs:empty{display:none}
+.job{display:flex;gap:12px;align-items:center;background:var(--accent-soft);border:1px solid var(--accent);border-radius:12px;padding:12px 14px}
+.job .who{font-weight:700;color:var(--accent);white-space:nowrap}
+.job .what{flex:1;min-width:0;font-size:13px}
+.job .what div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+.job .sec{font-variant-numeric:tabular-nums;color:var(--accent);font-weight:700}
+.spin{width:16px;height:16px;border:2px solid color-mix(in srgb,var(--accent) 25%,transparent);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;flex:none}
+.spin.w{border-color:rgba(255,255,255,.35);border-top-color:#fff}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:16px}
+@media (max-width:520px){.gallery{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);
+  display:grid;grid-template-columns:42% 1fr;height:200px;transition:transform .15s,box-shadow .15s}
+.card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+.card.new{animation:pop .9s ease-out}
+@keyframes pop{0%{box-shadow:0 0 0 3px var(--accent)}100%{box-shadow:var(--shadow)}}
+.card .imgs{position:relative;background:var(--chip);cursor:zoom-in;overflow:hidden}
+.card .imgs img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .25s}
+.card:hover .imgs img{transform:scale(1.03)}
+.badges{position:absolute;top:8px;left:8px;display:flex;gap:4px;flex-wrap:wrap;max-width:calc(100% - 16px)}
+.badge{background:rgba(0,0,0,.62);color:#fff;font:600 11px/1.6 ui-monospace,Consolas,monospace;border-radius:6px;padding:0 6px;backdrop-filter:blur(4px)}
+.card .count{position:absolute;bottom:8px;right:8px}
+.card .body{padding:12px 14px 10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card .p{font-size:13.5px;line-height:1.6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.tags{display:flex;gap:5px;align-items:center;overflow:hidden;flex-wrap:nowrap}
+.tag{font-size:11.5px;background:var(--chip);border-radius:6px;padding:1px 7px;color:var(--muted);white-space:nowrap;flex:none}
+.tag.cost{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.tag.fail{background:var(--danger-soft);color:var(--danger);font-weight:600}
+.acts{display:flex;gap:2px;justify-content:flex-end;margin-top:auto;align-items:center}
+.acts .t{margin-right:auto;font-size:11.5px;color:var(--faint)}
+.acts button{border:0;background:transparent;color:var(--faint);width:30px;height:30px;border-radius:8px;display:grid;place-items:center}
+.acts button:hover{background:var(--chip);color:var(--accent)}
+.acts button.del:hover{color:var(--danger);background:var(--danger-soft)}
+.acts button.fav-on{color:#f5b301}
+.acts button.fav-on svg{fill:#f5b301}
+.card.running{border-color:var(--accent)}
+.card.running .imgs{display:grid;place-items:center;cursor:default;background:var(--accent-soft)}
+.card.running .sec{font:700 20px ui-monospace,Consolas,monospace;color:var(--accent);margin-top:8px}
+.card.failed .imgs{display:grid;place-items:center;cursor:default;background:var(--danger-soft);color:var(--danger);font-size:28px}
+.errtxt{font-size:12px;color:var(--danger);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* 筛选 */
+.fbtn{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--panel);display:grid;place-items:center;color:var(--muted);box-shadow:var(--shadow);flex:none}
+.fbtn:hover{color:#f5b301}
+.fbtn.on{color:#f5b301;border-color:#f5b301;background:color-mix(in srgb,#f5b301 12%,var(--panel))}
+.fbtn.on svg{fill:#f5b301}
+.dd{position:relative;flex:none}
+.ddbtn{height:40px;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:12px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);min-width:100px;justify-content:space-between}
+.ddmenu{position:absolute;top:calc(100% + 6px);left:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);padding:6px;min-width:130px;display:none;z-index:25}
+.ddmenu.open{display:block}
+.ddmenu div{padding:7px 10px;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;gap:12px}
+.ddmenu div:hover{background:var(--chip)}
+.ddmenu div.on{color:var(--accent);font-weight:600}
+.ddmenu small{color:var(--muted);font-weight:400}
+.search{height:40px}
+.empty{text-align:center;color:var(--muted);padding:80px 20px}
+.empty .big{font-size:40px;margin-bottom:8px}
+
+/* 底部输入框 */
+.composer{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);width:min(980px,calc(100% - 32px));z-index:30;
+  background:var(--panel);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow-lg);padding:12px 14px 10px}
+@media (max-width:760px){.composer{bottom:10px;width:calc(100% - 20px);padding:10px}}
+.composer.drag{border-color:var(--accent);background:var(--accent-soft)}
+.refs{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px}
+.refs:empty{display:none}
+.ref{position:relative;width:56px;height:56px;border-radius:10px;overflow:hidden;border:1px solid var(--line);flex:none}
+.ref img{width:100%;height:100%;object-fit:cover}
+.ref button{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;border:0;background:rgba(0,0,0,.65);color:#fff;font-size:11px;line-height:18px;padding:0}
+.ref.mask{outline:2px dashed var(--accent);outline-offset:-2px}
+.composer textarea{width:100%;border:0;outline:none;resize:none;background:transparent;min-height:48px;max-height:40vh;padding:4px 2px;line-height:1.6}
+.bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}
+.ctl{position:relative}
+.cbtn{display:flex;align-items:center;gap:6px;border:1px solid transparent;background:var(--chip);border-radius:10px;padding:5px 10px;font-size:13px;white-space:nowrap}
+.cbtn:hover,.cbtn.open{background:var(--chip-h)}
+.cbtn .ic{width:15px;height:15px}
+.est{font-size:12px;color:var(--muted);margin-left:auto;white-space:nowrap}
+.est b{color:var(--accent)}
+.send{width:40px;height:40px;border-radius:12px;border:0;background:var(--accent);color:#fff;display:grid;place-items:center;flex:none}
+.send:hover{background:var(--accent-2)}
+.send:disabled{opacity:.55;cursor:wait}
+.err{color:var(--danger);font-size:12px;margin-top:6px}
+.err:empty{display:none}
+.pop{position:absolute;bottom:calc(100% + 8px);left:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-lg);
+  padding:12px;min-width:240px;display:none;z-index:40}
+.pop.open{display:block}
+.pop h4{margin:0 0 8px;font-size:12px;color:var(--muted);font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid transparent;background:var(--chip);border-radius:999px;padding:3px 11px;font-size:13px;user-select:none;cursor:pointer}
+.chip:hover{background:var(--chip-h)}
+.chip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+.pop .opt{display:flex;justify-content:space-between;gap:16px;padding:7px 10px;border-radius:8px;cursor:pointer;white-space:nowrap}
+.pop .opt:hover{background:var(--chip)}
+.pop .opt.on{color:var(--accent);font-weight:600}
+.pop .opt small{color:var(--muted);font-weight:400}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.field>label{font-size:12px;color:var(--muted);font-weight:600}
+.inp,select.inp{width:100%;border:1px solid var(--line);border-radius:9px;padding:7px 10px;background:var(--panel-2);outline:none}
+.inp:focus{border-color:var(--accent)}
+select option{background:var(--panel)}
+.hint{font-size:12px;color:var(--muted)}
+.hint code{background:var(--chip);border-radius:4px;padding:0 4px;font-size:11px}
+
+/* 灯箱 */
+.lb{position:fixed;inset:0;background:rgba(10,10,8,.88);display:none;z-index:50;padding:20px;gap:20px}
+.lb.open{display:flex}
+.lb .pic{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-width:0;min-height:0}
+.lb .pic img{max-width:100%;max-height:calc(100vh - 90px);border-radius:10px;object-fit:contain}
+.lb .thumbs{display:flex;gap:8px}
+.lb .thumbs img{width:54px;height:54px;object-fit:cover;border-radius:8px;opacity:.5;cursor:pointer;border:2px solid transparent}
+.lb .thumbs img.on{opacity:1;border-color:var(--accent)}
+.lb .info{width:360px;background:var(--panel);border-radius:16px;padding:18px;overflow:auto;max-height:calc(100vh - 40px);display:flex;flex-direction:column;gap:12px}
+.lb .x{position:absolute;top:14px;right:18px;color:#fff;font-size:30px;background:none;border:0;line-height:1}
+@media (max-width:860px){.lb.open{flex-direction:column;overflow:auto}.lb .info{width:auto;max-height:none}}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
+.kv span{color:var(--muted)}
+.kv b{font-weight:500;word-break:break-all}
+.ptext{white-space:pre-wrap;background:var(--chip);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.65;max-height:40vh;overflow:auto}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:9px;padding:6px 12px;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.pri:hover{background:var(--accent-2);color:#fff}
+
+/* 设置 */
+.modal{position:fixed;inset:0;background:rgba(10,10,8,.45);display:none;z-index:60;align-items:center;justify-content:center;padding:20px}
+.modal.open{display:flex}
+.dlg{background:var(--panel);border-radius:20px;box-shadow:var(--shadow-lg);width:min(820px,100%);height:min(620px,calc(100vh - 40px));display:flex;flex-direction:column;overflow:hidden}
+.dlg-h{display:flex;align-items:center;gap:10px;padding:18px 22px;font-size:17px;font-weight:700}
+.dlg-h .ver{margin-left:auto;font:12px monospace;color:var(--muted);font-weight:400}
+.dlg-h .x{border:0;background:none;color:var(--muted);font-size:22px;line-height:1}
+.dlg-b{flex:1;display:flex;min-height:0}
+.nav{width:180px;padding:4px 12px;display:flex;flex-direction:column;gap:2px;flex:none}
+.nav button{display:flex;align-items:center;gap:10px;border:0;background:none;padding:9px 12px;border-radius:10px;text-align:left;color:var(--muted)}
+.nav button:hover{background:var(--chip)}
+.nav button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.pane{flex:1;overflow:auto;padding:4px 22px 22px;border-left:1px solid var(--line)}
+.pane section{display:none}
+.pane section.on{display:block}
+.pane h3{font-size:14px;margin:6px 0 14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.row{display:flex;gap:8px;align-items:center}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--line)}
+.switch div small{display:block;color:var(--muted);font-size:12px}
+.tg{width:38px;height:22px;border-radius:999px;background:var(--chip-h);position:relative;border:0;flex:none;transition:background .15s}
+.tg::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.tg.on{background:var(--accent)}
+.tg.on::after{left:19px}
+.msg{font-size:12px;padding:8px 10px;border-radius:9px;margin-top:8px}
+.msg.ok{background:var(--ok-soft);color:var(--ok)}
+.msg.bad{background:var(--danger-soft);color:var(--danger)}
+.msg:empty{display:none}
+.balbox{background:var(--panel-2);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.balbox small{display:block;font-size:12px;color:var(--muted)}
+.balbox b{font-size:18px;font-variant-numeric:tabular-nums}
+.dlg-f{display:flex;justify-content:flex-end;gap:8px;padding:12px 22px;border-top:1px solid var(--line)}
+@media (max-width:700px){.dlg{height:calc(100vh - 20px)}.dlg-b{flex-direction:column}.nav{width:auto;flex-direction:row;overflow-x:auto;padding:0 12px 8px}
+  .nav button{white-space:nowrap}.pane{border-left:0;border-top:1px solid var(--line);padding-top:14px}.grid2{grid-template-columns:1fr}.balbox{grid-template-columns:1fr 1fr}}
+body.mode-browser .local-only{display:none!important}
+body.mode-local .browser-only{display:none!important}
+.toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:10px;font-size:13px;z-index:80;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+  <symbol id="i-img" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></symbol>
+  <symbol id="i-size" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></symbol>
+  <symbol id="i-cube" viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.3-9.3M17 6l3 3M14 9l2 2"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M20 7H5a2 2 0 0 1 0-4h13v4"/><path d="M3 5v14a2 2 0 0 0 2 2h15V7"/><circle cx="16" cy="14" r="1.2"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9.5a3 2 0 0 0-3-1.5c-1.7 0-3 .9-3 2s1.3 1.8 3 2 3 .9 3 2-1.3 2-3 2a3 2 0 0 1-3-1.5M12 6v2M12 16v2"/></symbol>
+  <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+  <symbol id="i-info"viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></symbol>
+</svg>
+
+<header class="top" id="top">
+  <div class="top-in">
+    <div class="brand"><div class="logo"><svg class="ic" style="width:16px;height:16px"><use href="#i-img"/></svg></div>
+      <span data-i18n="brand"></span> <small data-i18n="brand.sub"></small></div>
+    <div class="pill click" id="balPill" data-i18n-title="title.balance"></div>
+    <div class="pill hide-sm" id="spendPill" data-i18n-title="title.spend"></div>
+    <div class="pill hide-sm" id="syncPill"><span class="dot"></span><span data-i18n="sync.live"></span></div>
+    <div class="dd"><button class="iconbtn" id="langBtn" data-i18n-title="title.lang"><svg class="ic"><use href="#i-globe"/></svg></button>
+      <div class="ddmenu" id="langMenu" style="left:auto;right:0"></div></div>
+    <button class="iconbtn local-only" id="openFolder" data-i18n-title="title.folder"><svg class="ic"><use href="#i-folder"/></svg></button>
+    <button class="iconbtn" id="openSettings" data-i18n-title="title.settings"><svg class="ic"><use href="#i-gear"/></svg></button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="toolbar">
+    <button class="fbtn" id="favF" data-i18n-title="title.favOnly"><svg class="ic"><use href="#i-star"/></svg></button>
+    <div class="dd"><button class="ddbtn" id="stBtn"><span id="stLbl"></span><svg class="ic" style="width:14px;height:14px"><use href="#i-down"/></svg></button>
+      <div class="ddmenu" id="stMenu"></div></div>
+    <div class="search"><svg class="ic" style="color:var(--faint)"><use href="#i-search"/></svg>
+      <input id="q" data-i18n-ph="ph.search"></div>
+    <div class="stats" id="stats"></div>
+  </div>
+  <div class="gallery" id="gallery"></div>
+  <div class="empty" id="empty" style="display:none"></div>
+</main>
+
+<!-- 底部输入框 -->
+<div class="composer" id="composer">
+  <div class="refs" id="refs"></div>
+  <textarea id="prompt" rows="2" data-i18n-ph="ph.prompt"></textarea>
+  <div class="bar">
+    <div class="ctl"><button class="cbtn" data-pop="popModel"><svg class="ic"><use href="#i-cube"/></svg><span id="lblModel"></span></button>
+      <div class="pop" id="popModel"></div></div>
+    <div class="ctl"><button class="cbtn" data-pop="popSize"><svg class="ic"><use href="#i-size"/></svg><span id="lblSize"></span></button>
+      <div class="pop" id="popSize" style="width:300px">
+        <h4 data-i18n="size.tier"></h4><div class="chips" id="tiers"></div>
+        <h4 style="margin-top:12px" data-i18n="size.ratio"></h4><div class="chips" id="ratios"></div>
+        <h4 style="margin-top:12px" data-i18n="size.custom"></h4><input class="inp" id="customSize" data-i18n-ph="ph.custom">
+        <div class="hint" id="sizeHint" style="margin-top:8px"></div>
+      </div></div>
+    <div class="ctl"><button class="cbtn" data-pop="popQ"><svg class="ic"><use href="#i-spark"/></svg><span id="lblQ"></span></button>
+      <div class="pop" id="popQ"></div></div>
+    <div class="ctl"><button class="cbtn" data-pop="popN"><span id="lblN"></span></button>
+      <div class="pop" id="popN" style="min-width:150px"></div></div>
+    <button class="cbtn" id="addRef" data-i18n-title="title.addRef"><svg class="ic"><use href="#i-plus"/></svg><span data-i18n="btn.ref"></span></button>
+    <div class="ctl"><button class="cbtn" data-pop="popMore" data-i18n-title="title.more"><svg class="ic"><use href="#i-more"/></svg></button>
+      <div class="pop" id="popMore" style="width:280px">
+        <div class="field"><label data-i18n="f.name"></label><input class="inp" id="name" data-i18n-ph="ph.name"></div>
+        <div class="grid2">
+          <div class="field"><label data-i18n="f.format"></label><select class="inp" id="format"><option>png</option><option>jpeg</option><option>webp</option></select></div>
+          <div class="field"><label data-i18n="f.moderation"></label><select class="inp" id="moderation"><option value="auto">auto</option><option value="low">low</option></select></div>
+        </div>
+        <div class="field"><label data-i18n="f.background"></label><select class="inp" id="background"><option value="auto">auto</option>
+          <option value="opaque" data-i18n="bg.opaque"></option><option value="transparent" data-i18n="bg.transparent"></option></select></div>
+        <div class="field" style="margin:0"><label data-i18n="f.mask"></label><input type="file" id="maskFile" accept="image/png" class="hint"></div>
+      </div></div>
+    <span class="est" id="est"></span>
+    <button class="send" id="go" data-i18n-title="title.go"><svg class="ic"><use href="#i-send"/></svg></button>
+  </div>
+  <div class="err" id="err"></div>
+  <input type="file" id="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+</div>
+
+<!-- 大图 -->
+<div class="lb" id="lb">
+  <button class="x" id="lbX">×</button>
+  <div class="pic"><img id="lbImg" alt=""><div class="thumbs" id="lbThumbs"></div></div>
+  <div class="info" id="lbInfo"></div>
+</div>
+
+<!-- 设置 -->
+<div class="modal" id="settings">
+  <div class="dlg">
+    <div class="dlg-h"><svg class="ic" style="color:var(--accent)"><use href="#i-gear"/></svg><span data-i18n="set.title"></span><span class="ver" id="ver"></span><button class="x" id="setX">×</button></div>
+    <div class="dlg-b">
+      <nav class="nav" id="nav">
+        <button data-s="api" class="on"><svg class="ic"><use href="#i-key"/></svg><span data-i18n="nav.api"></span></button>
+        <button data-s="bal"><svg class="ic"><use href="#i-wallet"/></svg><span data-i18n="nav.bal"></span></button>
+        <button data-s="habit"><svg class="ic"><use href="#i-clock"/></svg><span data-i18n="nav.habit"></span></button>
+        <button data-s="price"><svg class="ic"><use href="#i-coin"/></svg><span data-i18n="nav.price"></span></button>
+        <button data-s="data"><svg class="ic"><use href="#i-db"/></svg><span data-i18n="nav.data"></span></button>
+        <button data-s="about"><svg class="ic"><use href="#i-info"/></svg><span data-i18n="nav.about"></span></button>
+      </nav>
+      <div class="pane">
+        <section data-s="api" class="on">
+          <h3 data-i18n="api.title"></h3>
+          <div class="field"><label>API URL</label><input class="inp" id="s_api_url" placeholder="https://api.openai.com/v1">
+            <span class="hint" data-i18n-html="api.url.hint"></span></div>
+          <div class="field"><label>API Key</label><input class="inp" id="s_api_key" type="password" autocomplete="off">
+            <span class="hint" id="keyHint"></span></div>
+          <div class="switch" id="connRow"><div><span data-i18n="conn.title"></span><small id="connHint"></small></div><button class="tg" id="connTg"></button></div>
+          <div class="field local-only"><label data-i18n="proxy.label"></label><input class="inp" id="s_proxy" data-i18n-ph="ph.proxy">
+            <span class="hint" data-i18n="proxy.hint"></span></div>
+          <div class="row"><button class="btn" id="testBtn" data-i18n="btn.test"></button></div>
+          <div class="msg" id="testMsg"></div>
+        </section>
+
+        <section data-s="bal">
+          <h3 data-i18n="bal.title"></h3>
+          <div class="balbox" id="balBox"></div>
+          <div class="field"><label data-i18n="bal.calLabel"></label>
+            <div class="row"><input class="inp" id="s_balance" type="number" step="0.01" data-i18n-ph="ph.bal">
+              <button class="btn" id="calBtn" data-i18n="btn.cal"></button></div>
+            <span class="hint" data-i18n="bal.calHint"></span></div>
+          <div class="field"><label data-i18n="admin.label"></label><input class="inp" id="s_admin_key" type="password" autocomplete="off">
+            <span class="hint" data-i18n="admin.hint"></span></div>
+          <div class="field"><label data-i18n="lowwarn.label"></label><input class="inp" id="s_low_balance_warn" type="number" step="1"></div>
+        </section>
+
+        <section data-s="habit">
+          <h3 data-i18n="habit.title"></h3>
+          <div class="grid2">
+            <div class="field"><label data-i18n="habit.model"></label><select class="inp" id="s_model">
+              <option value="gpt-image-2.5-sunburst">gpt-image-2.5-sunburst</option><option value="gpt-image-2.5-flare">gpt-image-2.5-flare</option></select></div>
+            <div class="field"><label data-i18n="habit.size"></label><input class="inp" id="s_size" data-i18n-ph="ph.size"></div>
+            <div class="field"><label data-i18n="habit.quality"></label><select class="inp" id="s_quality">
+              <option>low</option><option>medium</option><option>high</option><option>xhigh</option><option>max</option><option>auto</option></select></div>
+            <div class="field"><label data-i18n="habit.format"></label><select class="inp" id="s_format"><option>png</option><option>jpeg</option><option>webp</option></select></div>
+            <div class="field"><label data-i18n="habit.moderation"></label><select class="inp" id="s_moderation"><option value="auto">auto</option><option value="low">low</option></select></div>
+            <div class="field"><label data-i18n="habit.timeout"></label><input class="inp" id="s_timeout" type="number"></div>
+          </div>
+          <div class="field"><label data-i18n="habit.confirmOver"></label><input class="inp" id="s_confirm_over_usd" type="number" step="0.05">
+            <span class="hint" data-i18n="habit.confirmOver.hint"></span></div>
+          <div class="field local-only"><label data-i18n="habit.agentName"></label><input class="inp" id="s_agent_name" data-i18n-ph="agent.default">
+            <span class="hint" data-i18n="habit.agentName.hint"></span></div>
+          <div class="switch"><div><span data-i18n="habit.clearAfter"></span><small data-i18n="habit.clearAfter.hint"></small></div><button class="tg" id="s_clear_after_submit"></button></div>
+          <div class="hint" style="margin-top:10px" data-i18n="habit.note"></div>
+        </section>
+
+        <section data-s="price">
+          <h3 data-i18n="price.title"></h3>
+          <div class="grid2">
+            <div class="field"><label data-i18n="price.textIn"></label><input class="inp" id="r_text_in" type="number" step="0.1"></div>
+            <div class="field"><label data-i18n="price.imageIn"></label><input class="inp" id="r_image_in" type="number" step="0.1"></div>
+            <div class="field"><label data-i18n="price.imageOut"></label><input class="inp" id="r_image_out" type="number" step="0.1"></div>
+            <div></div>
+            <div class="field"><label data-i18n="price.fxCode"></label><select class="inp" id="s_fx_code">
+              <option value="" data-i18n="price.fxNone"></option><option>CNY</option><option>JPY</option><option>KRW</option><option>RUB</option>
+              <option>EUR</option><option>GBP</option><option>TWD</option><option>HKD</option></select></div>
+            <div class="field"><label data-i18n="price.fxRate"></label><input class="inp" id="s_fx_rate" type="number" step="0.01"></div>
+          </div>
+          <div class="hint" data-i18n="price.hint"></div>
+        </section>
+
+        <section data-s="data">
+          <h3 data-i18n="data.title"></h3>
+          <div class="field local-only"><label data-i18n="data.outDir"></label><input class="inp" id="s_out_dir">
+            <span class="hint" data-i18n="data.outDir.hint"></span></div>
+          <div class="balbox" id="dataBox" style="grid-template-columns:repeat(3,1fr)"></div>
+          <div class="hint browser-only" style="margin-bottom:12px" data-i18n="data.browserNote"></div>
+          <div class="btns local-only"><button class="btn" id="openFolder2"><svg class="ic"><use href="#i-folder"/></svg><span data-i18n="btn.openFolder"></span></button></div>
+          <div class="hint" style="margin-top:12px" data-i18n-html="data.note"></div>
+        </section>
+
+        <section data-s="about">
+          <h3 data-i18n="about.title"></h3>
+          <div class="kv" id="aboutKv"></div>
+          <div class="btns local-only" style="margin-top:14px"><button class="btn" id="shutBtn" data-i18n="btn.shutdown"></button></div>
+          <div class="hint local-only" style="margin-top:6px" data-i18n="shutdown.hint"></div>
+          <div class="hint" style="margin-top:14px" data-i18n="about.note"></div>
+        </section>
+      </div>
+    </div>
+    <div class="dlg-f"><span class="msg" id="saveMsg" style="margin:0 auto 0 0"></span>
+      <button class="btn" id="setCancel" data-i18n="btn.cancel"></button><button class="btn pri" id="setSave" data-i18n="btn.save"></button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="i18n.js"></script>
+<script src="backend.js"></script>
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const TIERS=["1K","2K","4K"], RATIOS=["16:9","9:16","1:1","4:3","3:4","3:2","2:3","21:9"];
+const QUALS=["low","medium","high","xhigh","max","auto"];
+const MODELS=[["gpt-image-2.5-sunburst","model.sunburst"],["gpt-image-2.5-flare","model.flare"]];
+const st={tier:"2K",ratio:"16:9",quality:"high",model:"gpt-image-2.5-sunburst",n:1,refs:[],mask:null,busy:false};
+let S={}, HIST=[], CUR_SIZE="", BAL=null;
+
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const usd=v=>v==null?"—":`$${v.toFixed(Math.abs(v)<0.1?4:Math.abs(v)<10?3:2)}`;
+/* 第二货币：设置里的 fx_code / fx_rate；老配置只有 usd_to_cny 的当人民币；都没有就按界面语言给默认 */
+function fxCfg(){
+  if(S.fx_code!==undefined&&S.fx_code!==null)return[S.fx_code||"",+S.fx_rate||0];
+  if(S.usd_to_cny)return["CNY",+S.usd_to_cny];
+  return FX_DEFAULT[LANG]||["",0];
+}
+const fx=v=>{const[c,r]=fxCfg();if(v==null||!c||!r)return"";const d=r>=100?0:2;
+  return(FX_SYMBOL[c]||c+" ")+(v*r).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d})};
+const money=v=>{const f=fx(v);return f?`${usd(v)} (${f})`:usd(v)};
+
+/* 两种模式：
+ *  local   —— 连着本机服务（server.py）：和对话同步、图存文件夹、key 在本机文件
+ *  browser —— 没有本机服务（比如在 GitHub Pages 上、别的电脑上打开）：backend.js 在浏览器里直接调 OpenAI
+ */
+const LOCAL="http://127.0.0.1:8765";
+let MODE="local", BASE="";
+const onLocalServer=()=>location.port==="8765"&&/^(127\.0\.0\.1|localhost|gpt-image\.localhost)$/.test(location.hostname);
+async function detectMode(){
+  if(onLocalServer()){MODE="local";BASE="";return}
+  if(load("conn","auto")!=="browser"){
+    try{const r=await fetch(LOCAL+"/api/status",{signal:AbortSignal.timeout(1500)});if(r.ok){MODE="local";BASE=LOCAL;return}}catch(e){}
+  }
+  MODE="browser";BASE="";
+}
+const api=(p,b)=>MODE==="browser"?BB.handle(p,b):fetch(BASE+p,b?{method:"POST",body:JSON.stringify(b)}:undefined).then(r=>r.json());
+function store(k,v){try{localStorage.setItem("gi2_"+k,JSON.stringify(v))}catch(e){}}
+function load(k,d){try{const v=localStorage.getItem("gi2_"+k);return v==null?d:JSON.parse(v)}catch(e){return d}}
+function toast(m){const e=$("#toast");e.textContent=m;e.classList.add("on");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("on"),1800)}
+const fileUrl=p=>MODE==="browser"?p:BASE+"/img/"+encodeURIComponent(p.split(/[\\/]/).pop());
+const fileName=(m,p,j=0)=>MODE==="browser"?`${m.id}${m.files.length>1?"_"+(j+1):""}.${m.params.output_format||"png"}`:p.split(/[\\/]/).pop();
+async function downloadImg(url,name){
+  // 跨域地址加 download 属性没用，先取成 blob 再下载
+  const b=await fetch(url).then(r=>r.blob());const u=URL.createObjectURL(b);
+  const a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(u),5000);
+}
+
+function applyMode(){
+  document.body.classList.toggle("mode-browser",MODE==="browser");
+  document.body.classList.toggle("mode-local",MODE==="local");
+  // 页面本身就是本机服务提供的，就没有「要不要连本机」可选
+  $("#connRow").style.display=onLocalServer()?"none":"flex";
+  $("#connTg").classList.toggle("on",load("conn","auto")!=="browser");
+  $("#connHint").textContent=t(MODE==="local"?"conn.hint.local":"conn.hint.browser");
+}
+$("#connTg").onclick=()=>{const on=!$("#connTg").classList.contains("on");store("conn",on?"auto":"browser");location.reload()};
+
+/* ---------- 语言 ---------- */
+function drawLangMenu(){$("#langMenu").innerHTML=LANGS.map(([c,n])=>`<div data-l="${c}" class="${LANG===c?"on":""}">${n}</div>`).join("")}
+$("#langBtn").onclick=e=>{e.stopPropagation();drawLangMenu();$("#langMenu").classList.toggle("open")};
+$("#langMenu").onclick=e=>{const d=e.target.closest("[data-l]");if(!d)return;setLang(d.dataset.l);$("#langMenu").classList.remove("open");rerender()};
+function rerender(){applyI18n();applyMode();renderComposer();drawRefs();drawGallery();poll(true);if($("#settings").classList.contains("open"))fillSettings()}
+
+/* ---------- 底部参数 ---------- */
+function sizeText(){const c=$("#customSize").value.trim();return c||`${st.tier} ${st.ratio}`}
+function renderComposer(){
+  $("#lblModel").textContent=st.model.replace("gpt-image-","");
+  $("#lblQ").textContent=st.quality;
+  $("#lblN").textContent=t("n.imgs",{n:st.n});
+  $("#lblSize").textContent=$("#customSize").value.trim()||`${st.tier} · ${st.ratio}`;
+  $("#popModel").innerHTML=MODELS.map(([v,k])=>`<div class="opt ${st.model===v?"on":""}" data-v="${v}">${v}<small>${t(k)}</small></div>`).join("");
+  $("#popQ").innerHTML=QUALS.map(v=>`<div class="opt ${st.quality===v?"on":""}" data-v="${v}">${v}<small>${t("q."+v)}</small></div>`).join("");
+  $("#popN").innerHTML=[1,2,3,4].map(v=>`<div class="opt ${st.n===v?"on":""}" data-v="${v}">${t("n.imgs",{n:v})}</div>`).join("");
+  $("#tiers").innerHTML=TIERS.map(v=>`<span class="chip ${st.tier===v?"on":""}" data-v="${v}">${v}</span>`).join("");
+  $("#ratios").innerHTML=RATIOS.map(v=>`<span class="chip ${st.ratio===v?"on":""}" data-v="${v}">${v}</span>`).join("");
+  checkSize();
+}
+let sizeT;
+function checkSize(){clearTimeout(sizeT);sizeT=setTimeout(async()=>{
+  const r=await api("/api/size",{size:sizeText()});
+  CUR_SIZE=r.error?"":r.size;
+  $("#sizeHint").innerHTML=r.error?`<span style="color:var(--danger)">${esc(r.error)}</span>`:t("size.actual",{s:r.size.replace("x"," × ")});
+  $("#est").innerHTML=estText();
+},120)}
+function saveComposer(){store("c",{tier:st.tier,ratio:st.ratio,quality:st.quality,model:st.model,n:st.n,custom:$("#customSize").value,
+  name:$("#name").value,format:$("#format").value,moderation:$("#moderation").value,background:$("#background").value})}
+function restoreComposer(){
+  const c=load("c",null);
+  st.tier=c?.tier||st.tier; st.ratio=c?.ratio||st.ratio;
+  st.quality=c?.quality||S.quality||"high"; st.model=c?.model||S.model||st.model; st.n=c?.n||1;
+  if(!c&&S.size){const m=String(S.size).match(/^(1K|2K|4K)\s+(\d+:\d+)$/i);if(m){st.tier=m[1].toUpperCase();st.ratio=m[2]}else $("#customSize").value=S.size}
+  if(c){$("#customSize").value=c.custom||"";$("#name").value=c.name||"";$("#format").value=c.format||S.format||"png";
+    $("#moderation").value=c.moderation||S.moderation||"auto";$("#background").value=c.background||"auto"}
+  else{$("#format").value=S.format||"png";$("#moderation").value=S.moderation||"auto"}
+  $("#prompt").value=load("prompt","");autoGrow();
+}
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-pop]");
+  const inPop=e.target.closest(".pop");
+  if(b){const p=$("#"+b.dataset.pop),open=p.classList.contains("open");closePops();if(!open){p.classList.add("open");b.classList.add("open")}return}
+  if(!inPop)closePops();
+});
+function closePops(){$$(".pop").forEach(p=>p.classList.remove("open"));$$(".cbtn").forEach(b=>b.classList.remove("open"))}
+$("#popModel").onclick=e=>{const o=e.target.closest(".opt");if(o){st.model=o.dataset.v;closePops();renderComposer();saveComposer()}};
+$("#popQ").onclick=e=>{const o=e.target.closest(".opt");if(o){st.quality=o.dataset.v;closePops();renderComposer();saveComposer()}};
+$("#popN").onclick=e=>{const o=e.target.closest(".opt");if(o){st.n=+o.dataset.v;closePops();renderComposer();saveComposer()}};
+$("#tiers").onclick=e=>{const c=e.target.closest(".chip");if(c){st.tier=c.dataset.v;$("#customSize").value="";renderComposer();saveComposer()}};
+$("#ratios").onclick=e=>{const c=e.target.closest(".chip");if(c){st.ratio=c.dataset.v;$("#customSize").value="";renderComposer();saveComposer()}};
+["#customSize","#name","#format","#moderation","#background"].forEach(id=>$(id).addEventListener("input",()=>{saveComposer();if(id==="#customSize")renderComposer()}));
+function autoGrow(){const p=$("#prompt");p.style.height="auto";p.style.height=Math.min(p.scrollHeight,innerHeight*.4)+"px"}
+$("#prompt").addEventListener("input",()=>{store("prompt",$("#prompt").value);autoGrow()});
+
+/* 预计花费：优先用自己同规格历史的平均，没有再用实测参考价 */
+const REF_COST={"2560x1440|high":0.06,"1440x2560|high":0.06,"3840x2160|high":0.22,"2160x3840|high":0.22};
+function estUsd(){
+  const hasRef=st.refs.length>0;
+  const same=HIST.filter(m=>m.params.size===CUR_SIZE&&m.params.quality===st.quality&&((m.refs||[]).length>0)===hasRef&&m.cost_usd);
+  if(same.length)return{v:same.reduce((a,m)=>a+m.cost_usd/(m.files.length||1),0)/same.length*st.n,src:t("est.src.hist",{n:same.length})};
+  const r=REF_COST[`${CUR_SIZE}|${st.quality}`];
+  return r?{v:r*st.n,src:t("est.src.ref")}:null;
+}
+function estText(){const e=estUsd();return e?`<span title="${esc(e.src)}">${t("est",{v:usd(e.v)})} ${fx(e.v)}</span>`:`<span title="${esc(t("est.tip"))}">${t("est.none")}</span>`}
+
+/* ---------- 参考图 ---------- */
+function readFile(f){return new Promise(res=>{const r=new FileReader();r.onload=()=>res({name:f.name,data:r.result});r.readAsDataURL(f)})}
+async function addFiles(files){let n=0;for(const f of files){if(!/^image\/(png|jpeg|webp)$/.test(f.type))continue;if(st.refs.length>=16){toast(t("toast.maxRefs"));break}
+  st.refs.push(await readFile(f));n++} if(n)drawRefs()}
+async function addRefFromUrl(url,name){const b=await fetch(url).then(r=>r.blob());await addFiles([new File([b],name||"ref.png",{type:b.type})]);toast(t("toast.refAdded"))}
+function drawRefs(){
+  $("#refs").innerHTML=st.refs.map((r,i)=>`<div class="ref"><img src="${r.data}"><button data-i="${i}">×</button></div>`).join("")+
+    (st.mask?`<div class="ref mask" title="${esc(t("title.mask"))}"><img src="${st.mask.data}"><button data-m="1">×</button></div>`:"");
+  $("#est").innerHTML=estText();
+}
+$("#refs").onclick=e=>{const b=e.target.closest("button");if(!b)return;if(b.dataset.m){st.mask=null;$("#maskFile").value=""}else st.refs.splice(+b.dataset.i,1);drawRefs()};
+$("#addRef").onclick=()=>$("#file").click();
+$("#file").onchange=e=>{addFiles(e.target.files);e.target.value=""};
+$("#maskFile").onchange=async e=>{st.mask=e.target.files[0]?await readFile(e.target.files[0]):null;drawRefs()};
+const comp=$("#composer");
+["dragover","dragenter"].forEach(ev=>document.addEventListener(ev,e=>{if([...e.dataTransfer.types].includes("Files")){e.preventDefault();comp.classList.add("drag")}}));
+["dragleave","drop"].forEach(ev=>document.addEventListener(ev,e=>{if(ev==="dragleave"&&e.relatedTarget)return;comp.classList.remove("drag")}));
+document.addEventListener("drop",e=>{if(e.dataTransfer.files.length){e.preventDefault();addFiles(e.dataTransfer.files)}});
+document.addEventListener("paste",e=>{const fs=[...e.clipboardData.files];if(fs.length&&!$("#settings").classList.contains("open"))addFiles(fs)});
+
+/* ---------- 生成 ---------- */
+async function go(){
+  if(st.busy)return;
+  const prompt=$("#prompt").value.trim();
+  if(!prompt){$("#err").textContent=t("err.noPrompt");return}
+  if(st.mask&&!st.refs.length){$("#err").textContent=t("err.maskNeedsRef");return}
+  const e=estUsd(), lim=+S.confirm_over_usd||0;
+  if(lim&&e&&e.v>lim&&!confirm(t("confirm.cost",{v:money(e.v),lim:usd(lim)})))return;
+  st.busy=true;$("#err").textContent="";$("#go").disabled=true;$("#go").innerHTML=`<span class="spin w"></span>`;
+  try{
+    const r=await api("/api/generate",{prompt,size:sizeText(),quality:st.quality,model:st.model,n:st.n,format:$("#format").value,
+      moderation:$("#moderation").value,background:$("#background").value,name:$("#name").value.trim()||"img",refs:st.refs,mask:st.mask});
+    if(r.error){$("#err").textContent=r.error}
+    else{toast(t("toast.done",{v:money(r.cost_usd)}));if(S.clear_after_submit){$("#prompt").value="";store("prompt","");autoGrow()}
+      await loadHistory(r.time);poll(true)}
+  }catch(err){$("#err").textContent=t("err.request")+err}
+  finally{st.busy=false;$("#go").disabled=false;$("#go").innerHTML=`<svg class="ic"><use href="#i-send"/></svg>`}
+}
+$("#go").onclick=go;
+document.addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)&&!$("#settings").classList.contains("open")){e.preventDefault();go()}
+  if(e.key==="Escape"){closeLb();closeSettings();closePops()}
+  if($("#lb").classList.contains("open")&&(e.key==="ArrowLeft"||e.key==="ArrowRight"))stepLb(e.key==="ArrowLeft"?-1:1);
+});
+
+/* ---------- 图库 ---------- */
+async function loadHistory(flashTime){
+  HIST=await api("/api/history");
+  drawGallery(flashTime);$("#est").innerHTML=estText();
+}
+/* 筛选：收藏 + 状态 + 搜索 */
+const F={fav:load("fav",false),status:load("status","all")};
+const STATUS=["all","done","running","failed"];
+let RUNNING=[], VIEW=[];
+function ratioOf(size){const [w,h]=String(size).split("x").map(Number);if(!w||!h)return"";const g=(a,b)=>b?g(b,a%b):a,d=g(w,h);
+  const r=`${w/d}:${h/d}`;const known={"16:9":1.778,"9:16":.5625,"4:3":1.333,"3:4":.75,"3:2":1.5,"2:3":.667,"1:1":1,"21:9":2.333};
+  if(known[r])return r;for(const[k,v]of Object.entries(known))if(Math.abs(w/h-v)<.02)return k;return r}
+function drawFilters(){
+  $("#favF").classList.toggle("on",F.fav);
+  $("#stLbl").textContent=t("status."+F.status);
+  const cnt={all:HIST.length+RUNNING.length,done:HIST.filter(m=>m.status==="done").length,running:RUNNING.length,failed:HIST.filter(m=>m.status==="failed").length};
+  $("#stMenu").innerHTML=STATUS.map(k=>`<div data-k="${k}" class="${F.status===k?"on":""}">${t("status."+k)}<small>${cnt[k]}</small></div>`).join("");
+}
+$("#favF").onclick=()=>{F.fav=!F.fav;store("fav",F.fav);drawGallery()};
+$("#stBtn").onclick=e=>{e.stopPropagation();$("#stMenu").classList.toggle("open")};
+$("#stMenu").onclick=e=>{const d=e.target.closest("[data-k]");if(!d)return;F.status=d.dataset.k;store("status",F.status);$("#stMenu").classList.remove("open");drawGallery()};
+document.addEventListener("click",e=>{if(!e.target.closest(".dd")){$("#stMenu").classList.remove("open");$("#langMenu").classList.remove("open")}});
+const ico=(id,s=16)=>`<svg class="ic" style="width:${s}px;height:${s}px"><use href="#${id}"/></svg>`;
+const tfmt=x=>`${x.slice(4,6)}-${x.slice(6,8)} ${x.slice(9,11)}:${x.slice(11,13)}`;
+
+function drawGallery(flashTime){
+  drawFilters();
+  const q=$("#q").value.trim().toLowerCase();
+  const match=m=>!q||(m.params.prompt+" "+(m.id||"")+" "+m.params.size+" "+m.params.quality).toLowerCase().includes(q);
+  let list=HIST.filter(m=>(F.status==="all"||m.status===F.status)&&(!F.fav||m.fav)&&match(m));
+  const runs=(F.status==="all"||F.status==="running")&&!F.fav?RUNNING.filter(j=>!q||j.prompt.toLowerCase().includes(q)):[];
+  if(F.status==="running")list=[];
+  VIEW=list.filter(m=>m.status==="done");
+  const imgs=HIST.reduce((a,m)=>a+m.files.length,0);
+  $("#stats").textContent=HIST.length?t("stats",{g:HIST.length,n:imgs})+((q||F.fav||F.status!=="all")?t("stats.shown",{n:list.length+runs.length}):""):"";
+  $("#empty").style.display=(list.length+runs.length)?"none":"block";
+  $("#empty").innerHTML=HIST.length?`<div class="big">${F.fav?"⭐":"🔍"}</div>${t(F.fav?"empty.fav":"empty.nomatch")}`
+    :`<div class="big">🖼️</div>${t("empty.none")}`;
+  const agent=esc(S.agent_name||t("agent.default"));
+  const runHtml=runs.map(j=>`<div class="card running">
+      <div class="imgs"><div style="text-align:center"><span class="spin" style="width:28px;height:28px;border-width:3px;display:inline-block"></span><div class="sec">${j.elapsed}s</div></div>
+        <div class="badges"><span class="badge">${ratioOf(j.size)}</span><span class="badge">${j.size.replace("x","×")}</span></div></div>
+      <div class="body"><div class="p">${esc(j.prompt)}</div>
+        <div class="tags"><span class="tag cost">${(j.source==="agent"||j.source==="对话")?t("running.agent",{name:agent}):t("running.web")}</span><span class="tag">${j.quality}</span>${j.refs?`<span class="tag">${t("tag.refs",{n:j.refs})}</span>`:""}<span class="tag">${esc(j.name)}</span></div></div></div>`).join("");
+  const cardHtml=list.map(m=>{
+    const i=HIST.indexOf(m), fail=m.status==="failed";
+    const badges=`<div class="badges"><span class="badge">${ratioOf(m.params.size)}</span><span class="badge">${m.params.size.replace("x","×")}</span></div>`;
+    const img=fail?`<div class="imgs">✕${badges}</div>`
+      :`<div class="imgs" data-open="1"><img loading="lazy" src="${fileUrl(m.files[0])}">${badges}
+        ${m.files.length>1?`<span class="badge count">${t("badge.count",{n:m.files.length})}</span>`:""}</div>`;
+    return `<div class="card ${fail?"failed":""} ${m.time===flashTime?"new":""}" data-i="${i}">${img}
+      <div class="body"><div class="p">${esc(m.params.prompt)}</div>
+        ${fail?`<div class="errtxt">${esc(m.error||t("fail"))}</div>`:""}
+        <div class="tags">${fail?`<span class="tag fail">${t("fail")}</span>`:`<span class="tag cost">${usd(m.cost_usd)}</span>`}
+          <span class="tag">${m.params.quality}</span><span class="tag">${m.params.model.replace("gpt-image-","")}</span>
+          ${(m.refs||[]).length?`<span class="tag">${t("tag.refs",{n:m.refs.length})}</span>`:""}</div>
+        <div class="acts"><span class="t">${tfmt(m.time)}${m.seconds?` · ${Math.round(m.seconds)}s`:""}</span>
+          ${fail?"":`<button title="${esc(t(m.fav?"title.unfav":"title.fav"))}" data-act="fav" class="${m.fav?"fav-on":""}">${ico("i-star")}</button>`}
+          <button title="${esc(t(fail?"title.retry":"title.reuse"))}" data-act="reuse">${ico("i-redo")}</button>
+          ${fail?"":`<button title="${esc(t("title.asRef"))}" data-act="ref">${ico("i-edit")}</button>`}
+          <button title="${esc(t("title.copy"))}" data-act="copy">${ico("i-copy")}</button>
+          <button title="${esc(t("title.del"))}" data-act="del" class="del">${ico("i-trash")}</button></div></div></div>`}).join("");
+  $("#gallery").innerHTML=runHtml+cardHtml;
+}
+$("#q").addEventListener("input",()=>drawGallery());
+$("#gallery").onclick=async e=>{
+  const card=e.target.closest(".card[data-i]");if(!card)return;const m=HIST[+card.dataset.i];
+  const act=e.target.closest("[data-act]")?.dataset.act;
+  if(act==="fav"){m.fav=!m.fav;await api("/api/fav",{id:m.id,fav:m.fav});drawGallery();toast(t(m.fav?"toast.fav":"toast.unfav"));return}
+  if(act==="del"){if(!confirm(t(MODE==="browser"?"confirm.del.browser":"confirm.del.local")))return;
+    const r=await api("/api/delete",{id:m.id});if(r.error){toast(r.error);return}await loadHistory();toast(t(MODE==="browser"?"toast.deleted.browser":"toast.deleted.local"));return}
+  if(act==="reuse")return reuse(m);
+  if(act==="ref")return addRefFromUrl(fileUrl(m.files[0]),m.files[0].split(/[\\/]/).pop());
+  if(act==="copy")return navigator.clipboard.writeText(m.params.prompt).then(()=>toast(t("toast.copied")));
+  if(e.target.closest("[data-open]"))openLb(VIEW.indexOf(m),0);
+};
+function reuse(m){
+  $("#prompt").value=m.params.prompt;store("prompt",m.params.prompt);autoGrow();
+  st.quality=m.params.quality;st.model=m.params.model;st.n=m.params.n||1;$("#customSize").value=m.params.size;
+  renderComposer();saveComposer();closeLb();$("#prompt").focus();toast(t("toast.reused"));
+}
+
+/* ---------- 大图 ---------- */
+let LB={i:0,f:0};
+function openLb(i,f){LB={i,f};drawLb();$("#lb").classList.add("open")}
+function closeLb(){$("#lb").classList.remove("open")}
+function stepLb(d){const m=VIEW[LB.i];if(m.files.length>1&&LB.f+d>=0&&LB.f+d<m.files.length){LB.f+=d}else{const ni=LB.i+d;if(ni<0||ni>=VIEW.length)return;LB.i=ni;LB.f=d<0?VIEW[ni].files.length-1:0}drawLb()}
+function drawLb(){
+  const m=VIEW[LB.i],f=m.files[LB.f];
+  $("#lbImg").src=fileUrl(f);
+  $("#lbThumbs").innerHTML=m.files.length>1?m.files.map((x,j)=>`<img src="${fileUrl(x)}" data-j="${j}" class="${j===LB.f?"on":""}">`).join(""):"";
+  const u=m.usage||{};
+  $("#lbInfo").innerHTML=`<div class="kv">
+      <span>${t("lb.cost")}</span><b style="color:var(--accent);font-weight:700">${usd(m.cost_usd)} ${fx(m.cost_usd)}${m.files.length>1?t("lb.total",{n:m.files.length}):""}</b>
+      <span>${t("lb.size")}</span><b>${m.params.size}</b><span>${t("lb.quality")}</span><b>${m.params.quality}</b><span>${t("lb.model")}</span><b>${m.params.model}</b>
+      <span>${t("lb.time")}</span><b>${t("lb.sec",{n:m.seconds})}</b><span>${t("lb.refs")}</span><b>${t("lb.refsN",{n:(m.refs||[]).length})}</b>
+      <span>Token</span><b>${t("lb.tokens",{i:u.input_tokens??"—",o:u.output_tokens??"—"})}</b>
+      <span>${t("lb.when")}</span><b>${m.time.replace(/(\d{4})(\d\d)(\d\d)-(\d\d)(\d\d)(\d\d)/,"$1-$2-$3 $4:$5:$6")}</b>
+      <span>${t("lb.file")}</span><b>${esc(fileName(m,f,LB.f))}</b></div>
+    <div class="ptext">${esc(m.params.prompt)}</div>
+    <div class="btns"><button class="btn" id="lbFav">${t(m.fav?"lb.faved":"lb.fav")}</button><button class="btn pri" id="lbReuse">${ico("i-redo",15)}${t("lb.reuse")}</button>
+      <button class="btn" id="lbRef">${ico("i-plus",15)}${t("lb.addRef")}</button>
+      <button class="btn" id="lbCopy">${ico("i-copy",15)}${t("lb.copy")}</button>
+      <button class="btn" id="lbDown">${t("lb.download")}</button>
+      ${MODE==="local"?`<button class="btn" id="lbReveal">${ico("i-folder",15)}${t("lb.reveal")}</button>`:""}</div>
+    <div class="hint">${t("lb.hint")}</div>`;
+  $("#lbFav").onclick=async()=>{m.fav=!m.fav;await api("/api/fav",{id:m.id,fav:m.fav});drawLb();drawGallery()};
+  $("#lbReuse").onclick=()=>reuse(m);
+  $("#lbRef").onclick=()=>addRefFromUrl(fileUrl(f),f.split(/[\\/]/).pop());
+  $("#lbCopy").onclick=()=>navigator.clipboard.writeText(m.params.prompt).then(()=>toast(t("toast.copied")));
+  $("#lbDown").onclick=()=>downloadImg(fileUrl(f),fileName(m,f,LB.f)).catch(e=>toast(t("toast.dlFail")+e));
+  if($("#lbReveal"))$("#lbReveal").onclick=()=>api("/api/reveal",{path:f});
+}
+$("#lbThumbs").onclick=e=>{const x=e.target.closest("img");if(x){LB.f=+x.dataset.j;drawLb()}};
+$("#lbX").onclick=closeLb;
+$("#lb").onclick=e=>{if(e.target.id==="lb"||e.target.classList.contains("pic"))closeLb()};
+
+/* ---------- 顶栏：余额 / 花费 / 同步 ---------- */
+let lastSig=null,pollT;
+async function poll(once){
+  clearTimeout(pollT);
+  try{
+    const s=await api("/api/status");
+    BAL=s.balance;
+    const sp=s.spend,b=s.balance;
+    const wallet=`<svg class="ic" style="width:15px;height:15px;color:var(--muted)"><use href="#i-wallet"/></svg>`;
+    $("#balPill").className="pill click"+(b.set&&b.low?" low":"");
+    $("#balPill").innerHTML=b.set?`${wallet}<span class="muted">${t("bal.label")}</span><b>${usd(b.remaining)}</b><span class="muted">${fx(b.remaining)}</span>${b.low?`<span style="color:var(--warn)">${t("bal.low")}</span>`:""}`
+      :`${wallet}<span class="muted">${t("bal.unset")}</span>`;
+    $("#spendPill").innerHTML=`<span class="muted">${t("spend.today")}</span><b>${usd(sp.today)}</b><span class="muted">${t("spend.times",{n:sp.count_today})}</span><span class="sep"></span><span class="muted">${t("spend.month")}</span><b>${usd(sp.month)}</b>`;
+    const runKey=r=>r.map(j=>j.started).join(",");
+    const runChanged=runKey(s.running)!==runKey(RUNNING);
+    RUNNING=s.running;
+    if(lastSig!==null&&s.sig!==lastSig&&!st.busy){const old=HIST[0]?.time;await loadHistory();const n=HIST[0];
+      if(n&&n.time!==old){drawGallery(n.time);toast(n.status==="failed"?t("toast.newFail"):t("toast.newImg",{v:money(n.cost_usd)}))}}
+    else if(runChanged)drawGallery();
+    else $$(".card.running .sec").forEach((e,i)=>{if(RUNNING[i])e.textContent=RUNNING[i].elapsed+"s"});
+    lastSig=s.sig;
+    $("#syncPill").innerHTML=MODE==="local"?`<span class="dot"></span><span>${t(BASE?"sync.connected":"sync.live")}</span>`:`<span class="dot" style="background:var(--accent)"></span><span>${t("sync.browser")}</span>`;
+    if($("#settings").classList.contains("open"))drawBalBox();
+  }catch(e){$("#syncPill").innerHTML=`<span class="dot off"></span><span>${t("sync.off")}</span>`}
+  if(!once)pollT=setTimeout(poll,2000);
+}
+$("#balPill").onclick=()=>openSettings("bal");
+$("#openFolder").onclick=$("#openFolder2").onclick=()=>api("/api/open-folder",{});
+addEventListener("scroll",()=>$("#top").classList.toggle("scrolled",scrollY>4));
+
+/* ---------- 设置 ---------- */
+async function openSettings(sec){
+  S=await api("/api/settings");fillSettings();showSec(sec||"api");$("#saveMsg").textContent="";$("#testMsg").textContent="";$("#settings").classList.add("open");
+}
+function closeSettings(){$("#settings").classList.remove("open")}
+function showSec(s){$$("#nav button").forEach(b=>b.classList.toggle("on",b.dataset.s===s));$$(".pane section").forEach(x=>x.classList.toggle("on",x.dataset.s===s))}
+$("#nav").onclick=e=>{const b=e.target.closest("button");if(b)showSec(b.dataset.s)};
+$("#openSettings").onclick=()=>openSettings();
+$("#setX").onclick=$("#setCancel").onclick=closeSettings;
+$("#settings").onclick=e=>{if(e.target.id==="settings")closeSettings()};
+const kv=(k,v)=>`<span>${t(k)}</span><b>${v}</b>`;
+function fillSettings(){
+  $("#ver").textContent="v"+S.version;
+  for(const k of ["api_url","proxy","size","timeout","out_dir","low_balance_warn","confirm_over_usd"])$("#s_"+k).value=S[k]??"";
+  for(const k of ["model","quality","format","moderation"])$("#s_"+k).value=S[k]||$("#s_"+k).options[0].value;
+  if(!S.api_url)$("#s_api_url").value="https://api.openai.com/v1";
+  if(S.low_balance_warn==null)$("#s_low_balance_warn").value=5;
+  if(S.timeout==null)$("#s_timeout").value=900;
+  if(S.confirm_over_usd==null)$("#s_confirm_over_usd").value=0.5;
+  const[fc,fr]=fxCfg();$("#s_fx_code").value=fc;$("#s_fx_rate").value=fr||"";
+  $("#s_api_key").value="";$("#s_api_key").placeholder=S.api_key_masked?t("key.current",{k:S.api_key_masked}):"sk-…";
+  const src=MODE==="browser"?t("be.keySrc"):S.key_source;
+  $("#keyHint").textContent=S.api_key_masked?t(MODE==="browser"?"keyHint.browser":"keyHint.local",{src})
+    :t(MODE==="browser"?"keyHint.noneBrowser":"keyHint.none");
+  $("#s_agent_name").value=S.agent_name||"";
+  $("#s_admin_key").value="";$("#s_admin_key").placeholder=S.admin_key_masked?t("key.current",{k:S.admin_key_masked}):t("admin.ph");
+  $("#s_clear_after_submit").classList.toggle("on",!!S.clear_after_submit);
+  for(const k of ["text_in","image_in","image_out"])$("#r_"+k).value=S.rates[k];
+  $("#s_balance").value="";
+  drawBalBox();
+  const imgs=HIST.reduce((a,m)=>a+m.files.length,0),tot=HIST.reduce((a,m)=>a+(m.cost_usd||0),0);
+  $("#dataBox").innerHTML=`<div><small>${t("data.records")}</small><b>${t("data.groups",{n:HIST.length})}</b></div>
+    <div><small>${t("data.images")}</small><b>${t("data.imagesN",{n:imgs})}</b></div><div><small>${t("data.total")}</small><b>${usd(tot)}</b></div>`;
+  if(MODE==="browser"){
+    const mb=S.storage_bytes!=null?`${(S.storage_bytes/1048576).toFixed(1)} MB`:"—";
+    $("#dataBox").innerHTML+=`<div style="grid-column:1/-1"><small>${t("data.storage")}</small><b style="font-size:15px">${mb}</b></div>`;
+    $("#aboutKv").innerHTML=kv("about.version","v"+S.version)+kv("about.mode",t("mode.browserLong"))+kv("about.dataAt",t("about.browserStore"))
+      +kv("about.url",esc(location.href.split("#")[0]));
+    return;
+  }
+  $("#aboutKv").innerHTML=kv("about.version","v"+S.version)+kv("about.mode",t(BASE?"mode.connected":"mode.local"))
+    +kv("about.localSvc","http://127.0.0.1:8765"+t("about.localOnly"))+kv("about.skillDir",esc(S.skill_dir))
+    +kv("about.config",esc(S.config_file))+kv("about.outDir",esc(S.out_dir))+kv("about.start",t("about.startVal"));
+}
+function drawBalBox(){
+  const b=BAL||{};
+  if(!b.set){$("#balBox").innerHTML=`<div style="grid-column:1/-1" class="hint">${t("bal.notCal")}</div>`;return}
+  const d=new Date(b.at*1000);
+  $("#balBox").innerHTML=`<div><small>${t("bal.remaining")}</small><b style="color:${b.low?"var(--warn)":"var(--text)"}">${usd(b.remaining)}</b><small>${fx(b.remaining)}</small></div>
+    <div><small>${t("bal.atCal")}</small><b>${usd(b.amount)}</b><small>${d.toLocaleString(LANG==="zh"?"zh-CN":LANG)}</small></div>
+    <div><small>${t("bal.spentAfter")}</small><b>${usd(b.spent)}</b><small>${t(b.source==="admin"?"bal.srcAdmin":"bal.srcLocal")}</small></div>
+    ${b.error?`<div style="grid-column:1/-1;color:var(--warn);font-size:12px">${esc(b.error)}</div>`:""}`;
+}
+$("#s_clear_after_submit").onclick=e=>e.currentTarget.classList.toggle("on");
+function collect(){
+  const num=id=>{const v=$(id).value;return v===""?null:+v};
+  const fxCode=$("#s_fx_code").value, fxRate=num("#s_fx_rate");
+  const b={api_url:$("#s_api_url").value.trim(),proxy:$("#s_proxy").value.trim(),model:$("#s_model").value,size:$("#s_size").value.trim()||"2K 16:9",
+    quality:$("#s_quality").value,format:$("#s_format").value,moderation:$("#s_moderation").value,out_dir:$("#s_out_dir").value.trim(),
+    fx_code:fxCode,fx_rate:fxRate,low_balance_warn:num("#s_low_balance_warn"),timeout:num("#s_timeout"),confirm_over_usd:num("#s_confirm_over_usd"),
+    clear_after_submit:$("#s_clear_after_submit").classList.contains("on"),agent_name:$("#s_agent_name").value.trim(),
+    rates:{text_in:num("#r_text_in"),image_in:num("#r_image_in"),image_out:num("#r_image_out")}};
+  if(fxCode==="CNY"&&fxRate)b.usd_to_cny=fxRate;  // 兼容老字段（命令行脚本用它显示人民币）
+  if($("#s_api_key").value.trim())b.api_key=$("#s_api_key").value.trim();
+  if($("#s_admin_key").value.trim())b.admin_key=$("#s_admin_key").value.trim();
+  return b;
+}
+$("#s_fx_code").onchange=()=>{const c=$("#s_fx_code").value;const d=Object.values(FX_DEFAULT).find(x=>x[0]===c);
+  if(d&&!$("#s_fx_rate").value)$("#s_fx_rate").value=d[1]};
+$("#setSave").onclick=async()=>{
+  const r=await api("/api/settings",collect());
+  if(r.error){$("#saveMsg").className="msg bad";$("#saveMsg").textContent=r.error;return}
+  S=r;fillSettings();await poll(true);await loadHistory();
+  $("#saveMsg").className="msg ok";$("#saveMsg").textContent=t("saved");setTimeout(()=>$("#saveMsg").textContent="",1500);
+};
+$("#calBtn").onclick=async()=>{
+  const v=$("#s_balance").value;if(v===""){toast(t("toast.fillBal"));return}
+  const r=await api("/api/settings",{...collect(),balance_amount:+v});
+  if(r.error){toast(r.error);return}S=r;await poll(true);fillSettings();toast(t("toast.calibrated"));
+};
+$("#shutBtn").onclick=async()=>{
+  if(!confirm(t("confirm.shutdown")))return;
+  try{await api("/api/shutdown",{})}catch(e){}
+  closeSettings();toast(t("toast.shutdown"));
+};
+$("#testBtn").onclick=async()=>{
+  $("#testMsg").className="msg";$("#testMsg").textContent=t("testing");
+  const r=await api("/api/test",{api_url:$("#s_api_url").value.trim(),proxy:$("#s_proxy").value.trim(),api_key:$("#s_api_key").value.trim(),model:$("#s_model").value});
+  $("#testMsg").className="msg "+(r.ok?"ok":"bad");$("#testMsg").textContent=r.msg;
+};
+
+/* ---------- 启动 ---------- */
+(async()=>{
+  applyI18n();
+  await detectMode();
+  applyMode();
+  S=await api("/api/settings");
+  restoreComposer();renderComposer();drawRefs();
+  await loadHistory();poll();
+  if(MODE==="browser"&&!S.api_key_masked){openSettings("api");toast(t("toast.needKey"))}
+})();
+</script>
+</body>
+</html>

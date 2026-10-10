@@ -1,0 +1,19 @@
+# 个人配置和本机规矩（含 key / 余额 / 本机路径），绝不上传
+config.json
+rules.local.md
+.env
+.env.*
+
+# Python
+__pycache__/
+*.pyc
+
+# 出图结果默认在 ~/Pictures/gpt-image，不在仓库里；万一配到这里也别传
+output/
+*.png
+*.jpg
+*.jpeg
+*.webp
+!docs/*.png
+!docs/*.jpg
+!docs/*.webp
