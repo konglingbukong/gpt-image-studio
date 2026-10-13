@@ -61,4 +61,5 @@ The same page can be hosted on GitHub Pages: on a computer running the local ser
 - `No API key found`: add it in the web page under Settings → API, put `api_key` in `config.json`, or set `OPENAI_API_KEY`.
 - `OpenAI error 400`: read which parameter it complains about — usually an invalid size or a wrong model name.
 - Blocked by moderation: if the content is fine, retry with `--moderation low` (the edits endpoint doesn't take this option).
+- Relay service (OpenAI-compatible proxy such as one-api / new-api): set `api_url` to the relay's address and `api_key` to its key; use the relay's model name with `--model`. If it rejects parameters with HTTP 400, set `"minimal_params": true`. Image URLs in responses and per-image pricing (`"rates": {"per_image": …}`) are supported; with relays that expose the legacy billing endpoints the real balance is read automatically.
 - Messages are in English by default; `"lang": "zh"` in `config.json` switches them to Chinese.

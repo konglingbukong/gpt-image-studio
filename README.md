@@ -4,7 +4,11 @@
 
 **A workbench for OpenAI's `gpt-image-2.5` using your own API key. Ask your AI agent for an image in a single sentence, then watch it appear in a local web gallery with its cost and your remaining balance.**
 
-<!-- screenshot: docs/screenshot.png -->
+![GPT Image Studio — gallery](docs/screenshot.png)
+
+*Ask your agent, watch it appear:*
+
+![An AI agent generating an image while the web gallery shows it live](docs/agent-sync.png)
 
 ## Features
 
@@ -15,6 +19,7 @@
 - **Gallery tools.** Favorites, filters by status (completed / generating / failed), search, one-click reuse of settings, and "use as reference" to keep iterating on a result. Deleted items go to a `.trash` folder instead of being erased.
 - **Use it anywhere.** The same page can be hosted on GitHub Pages. On a computer that runs the local service it connects to that service automatically; anywhere else it runs in *browser mode*, where your key and images stay in that browser.
 - **5 languages.** English, 中文, 日本語, 한국어 and Русский. The language follows your browser and can be switched in the page.
+- **Relay services supported.** Works with OpenAI-compatible relays (one-api, new-api …), including image-URL responses, per-image pricing and reading the relay's real balance. See [Relay services](#relay-services-openai-compatible-proxies).
 - **Zero dependencies.** You only need Python 3.9 or later. Nothing to `pip install`.
 
 ## Install
@@ -60,6 +65,19 @@ Pick whichever of these your agent supports:
 Whichever route you choose, images land in the same folder and show up live in the web workbench.
 
 **Verified:** Claude Code, Codex (including the ChatGPT desktop app), WorkBuddy, Antigravity and DeepSeek Harness (dsh). The full list, per-agent setup notes, interface contracts and the steps for adding a new agent are in **[docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)**. If your agent isn't supported yet, open an "Integration request" issue, or wire it up yourself following [CONTRIBUTING.md](CONTRIBUTING.md) and send a PR.
+
+## Relay services (OpenAI-compatible proxies)
+
+Many people reach gpt-image through a relay / proxy service instead of OpenAI directly (one-api, new-api and similar). These work too:
+
+- **Setup:** put the relay's address in Settings → API → API URL (usually ending in `/v1`) and the relay's key in API Key. If the relay names the model differently (e.g. `gpt-image-2.5`), type that name in the model menu.
+- **Image URLs:** relays that return an image link instead of base64 data are handled; the image is downloaded and saved like any other.
+- **Strict relays:** if a relay rejects official-only parameters (`moderation`, `output_format`, `background`), turn on **Send basic parameters only**. The error message suggests this when it happens.
+- **Per-image pricing:** most relays bill per image. Set **Pricing → Per-image price** and costs are calculated from it instead of tokens.
+- **Real balance:** if the relay supports the one-api / new-api billing endpoints, the actual remaining credit is read from the relay automatically, with no calibration needed.
+- **Connection test:** works with relays that only implement `GET /models`.
+
+Command-line equivalents in `config.json`: `"api_url"`, `"api_key"`, `"model"`, `"minimal_params": true`, `"rates": {"per_image": 0.04}`, `"balance_source": "auto" | "relay" | "manual"`.
 
 ## Command line
 

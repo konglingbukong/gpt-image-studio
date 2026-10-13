@@ -48,7 +48,7 @@ Prints **exactly one JSON line** to stdout, success or failure. Exit code is 0 o
  "cost_usd": 0.0564, "fx": "$0.0564 (≈ ¥0.40)", "today_usd": 0.2256, "month_usd": 1.86,
  "record": "/abs/path/20261010-173542_name.json"}
 // --check
-{"ok": true, "action": "check", "model": "gpt-image-2.5-sunburst"}
+{"ok": true, "action": "check", "model": "gpt-image-2.5-sunburst", "listed": true}   // listed=false: reachable, but the model isn't in the service's model list (common with relays)
 // --dry-run
 {"ok": true, "action": "dry_run", "endpoint": "/images/generations", "refs": [], "params": {...}}
 // any failure

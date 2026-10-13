@@ -19,7 +19,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "scripts"))
 import gen  # noqa: E402
 
-PORT = 8765
+PORT = int(os.environ.get("GPT_IMAGE_PORT") or 8765)  # override to run a second instance
 VERSION = "0.3"
 CFG = {}
 OUT_DIR = Path()
@@ -88,6 +88,7 @@ def generate(body):
         endpoint = "/images/edits" if refs else "/images/generations"
         if not refs:
             params["moderation"] = body.get("moderation") or CFG.get("moderation", "auto")
+        params = gen.compat_params(params, CFG)
         t0 = time.time()
         try:
             with gen.running_marker(OUT_DIR, stamp, name, params, len(refs), source="web"):
@@ -103,16 +104,19 @@ def generate(body):
         secs = round(time.time() - t0, 1)
 
         saved = []
-        data = resp.get("data", [])
+        data = resp.get("data") or []
+        if not data:
+            gen.write_failed(OUT_DIR, stamp, name, endpoint, params, [str(p) for p in refs], gen.tr("no_image"), secs)
+            return None, gen.tr("no_image")
         for i, item in enumerate(data, 1):
             suffix = f"_{i}" if len(data) > 1 else ""
             path = OUT_DIR / f"{stamp}_{name}{suffix}.{fmt}"
-            path.write_bytes(base64.b64decode(item["b64_json"]))
+            path.write_bytes(gen.image_bytes(item, opener, timeout))
             saved.append(str(path))
         meta = {
             "time": stamp, "endpoint": endpoint, "seconds": secs, "params": params,
             "refs": [str(p) for p in refs], "mask": str(mask) if mask else None,
-            "usage": resp.get("usage"), "cost_usd": gen.calc_cost(resp.get("usage"), CFG), "files": saved,
+            "usage": resp.get("usage"), "cost_usd": gen.calc_cost(resp.get("usage"), CFG, len(saved)), "files": saved,
         }
         (OUT_DIR / f"{stamp}_{name}.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
         return meta, None
@@ -157,7 +161,7 @@ def history(limit=500):
             continue  # images were deleted by hand
         m["status"] = "failed" if failed else "done"
         if m.get("cost_usd") is None:
-            m["cost_usd"] = gen.calc_cost(m.get("usage"), CFG)
+            m["cost_usd"] = gen.calc_cost(m.get("usage"), CFG, len(m["files"]) or 1) if m["status"] == "done" else 0
         m["id"] = f.stem
         items.append(m)
     return items
@@ -250,7 +254,29 @@ def admin_spend_since(ts, admin_key):
     return total, err
 
 
+_relay_cache = {"at": 0, "value": None}
+
+
+def relay_balance_cached():
+    if time.time() - _relay_cache["at"] < 60:
+        return _relay_cache["value"]
+    try:
+        v = gen.relay_balance(gen.build_opener(CFG), gen.load_key(CFG))
+    except SystemExit:
+        v = None
+    _relay_cache.update(at=time.time(), value=v)
+    return v
+
+
 def balance():
+    # balance_source: "auto" (default) | "relay" | "manual"
+    # auto = read it from the relay when api_url isn't OpenAI's and the relay supports the billing endpoints
+    src = CFG.get("balance_source") or "auto"
+    if src == "relay" or (src == "auto" and "api.openai.com" not in gen.API):
+        rb = relay_balance_cached()
+        if rb:
+            return {"set": True, "source": "relay", "amount": rb["total"], "spent": rb["used"], "remaining": rb["remaining"],
+                    "at": None, "error": None, "low": rb["remaining"] < float(CFG.get("low_balance_warn", 5))}
     b = CFG.get("balance") or {}
     if b.get("amount") is None:
         return {"set": False}
@@ -275,7 +301,7 @@ def balance():
 
 SETTABLE = ["api_url", "proxy", "model", "size", "quality", "format", "moderation", "out_dir",
             "usd_to_cny", "low_balance_warn", "timeout", "rates", "clear_after_submit", "confirm_over_usd",
-            "agent_name", "allowed_origins", "fx_code", "fx_rate", "lang"]
+            "agent_name", "allowed_origins", "fx_code", "fx_rate", "lang", "minimal_params", "balance_source"]
 
 
 def settings_view():
@@ -290,7 +316,7 @@ def settings_view():
         "key_source": gen.tr("src_env") if os.environ.get("OPENAI_API_KEY") else (gen.tr("src_cfg") if CFG.get("api_key") else (CFG.get("key_file") or "")),
         "admin_key_masked": mask_key(CFG.get("admin_key", "")),
         "balance": CFG.get("balance"),
-        "rates": {**gen.DEFAULT_RATES, **(CFG.get("rates") or {})},
+        "rates": {**gen.DEFAULT_RATES, "per_image": 0, **(CFG.get("rates") or {})},
         "out_dir": str(OUT_DIR), "version": VERSION,
         "skill_dir": str(HERE.parent), "config_file": str(gen.CONFIG_FILE),
     })
@@ -336,33 +362,30 @@ def save_settings(body):
     gen.save_config(cfg)
     reload_config()
     _cost_cache["key"] = None
+    _relay_cache["at"] = 0
     return settings_view()
 
 
 def test_connection(body):
-    """Free: fetch the model info to confirm the key and network work."""
+    """Free: confirm the key and network work (falls back to GET /models for relays without /models/{id})."""
+    saved_api = gen.API
     try:
         cfg = {**CFG, **{k: body[k] for k in ("api_url", "proxy") if k in body}}
         key = (body.get("api_key") or "").strip() or gen.load_key(CFG)
-        api = (cfg.get("api_url") or "https://api.openai.com/v1").rstrip("/")
+        gen.API = (cfg.get("api_url") or "https://api.openai.com/v1").rstrip("/")
         model = body.get("model") or CFG.get("model", "gpt-image-2.5-sunburst")
-        opener = gen.build_opener(cfg)
         t0 = time.time()
-        req = urllib.request.Request(f"{api}/models/{model}", headers={"Authorization": f"Bearer {key}"})
-        with opener.open(req, timeout=30) as r:
-            info = json.loads(r.read().decode("utf-8"))
-        return {"ok": True, "msg": gen.tr("test_ok", ms=round((time.time() - t0) * 1000), m=info.get("id"))}
-    except urllib.error.HTTPError as e:
-        body_txt = e.read().decode("utf-8", "replace")
-        try:
-            msg = json.loads(body_txt)["error"]["message"]
-        except Exception:
-            msg = body_txt[:300]
-        return {"ok": False, "msg": gen.tr("test_err", code=e.code, msg=msg)}
+        r = gen.probe(gen.build_opener(cfg), key, model)
+        ms = round((time.time() - t0) * 1000)
+        if r["listed"]:
+            return {"ok": True, "msg": gen.tr("test_ok", ms=ms, m=model)}
+        return {"ok": True, "msg": gen.tr("check_ok_unlisted", m=model)}
     except SystemExit as e:
         return {"ok": False, "msg": str(e)}
     except Exception as e:
         return {"ok": False, "msg": gen.tr("test_conn", e=e)}
+    finally:
+        gen.API = saved_api
 
 
 def open_in_file_manager(p, select=False):

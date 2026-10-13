@@ -11,6 +11,7 @@ import argparse
 import base64
 import contextlib
 import json
+import re
 import math
 import mimetypes
 import os
@@ -26,7 +27,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from messages import set_lang, tr  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
-CONFIG_FILE = HERE.parent / "config.json"
+# GPT_IMAGE_CONFIG points to another config file, e.g. to run a second instance with its own folder
+CONFIG_FILE = Path(os.environ.get("GPT_IMAGE_CONFIG") or HERE.parent / "config.json")
 API = "https://api.openai.com/v1"
 
 # Size limits (gpt-image-2.5): sides are multiples of 16, long side <= 3840, ratio <= 3:1, total pixels in this range
@@ -38,11 +40,18 @@ TIER_LONG_EDGE = {"1K": 1536, "2K": 2560, "4K": 3840}
 DEFAULT_RATES = {"text_in": 5, "image_in": 8, "image_out": 30}
 
 
-def calc_cost(usage, cfg):
-    """USD cost of one call from its usage; None if there is no usage."""
+def calc_cost(usage, cfg, n=1):
+    """USD cost of one call.
+
+    rates.per_image > 0 (typical for relay services that bill per image) → per_image × n images.
+    Otherwise from the token usage OpenAI returns; None if there is no usage (some relays omit it).
+    """
+    rates = {**DEFAULT_RATES, **(cfg.get("rates") or {})}
+    per_image = float(rates.get("per_image") or 0)
+    if per_image > 0:
+        return round(per_image * max(int(n or 1), 1), 5)
     if not usage:
         return None
-    rates = {**DEFAULT_RATES, **cfg.get("rates", {})}
     ind = usage.get("input_tokens_details") or {}
     outd = usage.get("output_tokens_details") or {}
     text_in = ind.get("text_tokens", usage.get("input_tokens", 0) - ind.get("image_tokens", 0))
@@ -84,7 +93,8 @@ def spend_summary(out_dir):
             tot["month"] += c
         if m.get("time", "").startswith(today):
             tot["today"] += c
-            tot["count_today"] += 1
+            if m.get("status") != "failed":  # failed attempts aren't charged
+                tot["count_today"] += 1
     return {k: (round(v, 4) if isinstance(v, float) else v) for k, v in tot.items()}
 
 
@@ -181,7 +191,8 @@ def request(opener, req, timeout):
             msg = json.loads(body)["error"]["message"]
         except Exception:
             msg = body[:800]
-        sys.exit(tr("openai_err", code=e.code, msg=msg))
+        hint = tr("hint_minimal") if e.code == 400 and re.search(r"param|argument|unknown|unrecognized|not supported", msg, re.I) else ""
+        sys.exit(tr("openai_err", code=e.code, msg=msg) + hint)
     except urllib.error.URLError as e:
         sys.exit(tr("cant_reach", e=e.reason))
     except (ConnectionError, TimeoutError, OSError) as e:  # dropped connection / proxy hiccup / read timeout
@@ -215,6 +226,79 @@ def post_multipart(opener, key, path, fields, files, timeout):
         method="POST",
     )
     return request(opener, req, timeout)
+
+
+# ---- OpenAI-compatible relay services (中转站 / one-api / new-api …) ----
+
+# parameters only the official API understands; some relays reject them with HTTP 400
+EXTRA_PARAMS = ("moderation", "output_format", "background")
+
+
+def compat_params(params, cfg):
+    """With "minimal_params": true, send only the basic fields (for relays that reject unknown parameters)."""
+    if not cfg.get("minimal_params"):
+        return params
+    return {k: v for k, v in params.items() if k not in EXTRA_PARAMS}
+
+
+def image_bytes(item, opener, timeout=300):
+    """Image data from one response item: base64 (official API) or a URL (many relays)."""
+    if item.get("b64_json"):
+        return base64.b64decode(item["b64_json"])
+    url = item.get("url") or ""
+    if url.startswith("data:"):
+        return base64.b64decode(url.split(",", 1)[1])
+    if url.startswith("http"):
+        try:
+            with opener.open(urllib.request.Request(url, headers={"User-Agent": "gpt-image-studio"}), timeout=timeout) as r:
+                return r.read()
+        except Exception as e:
+            sys.exit(tr("img_download_fail", e=f"{type(e).__name__}: {e}"))
+    sys.exit(tr("no_image"))
+
+
+def probe(opener, key, model):
+    """Free connection test. Official API: GET /models/{id}. Many relays only implement GET /models,
+    so fall back to the list; a relay that answers but doesn't list the model still counts as connected."""
+    headers = {"Authorization": f"Bearer {key}"}
+    try:
+        with opener.open(urllib.request.Request(f"{API}/models/{model}", headers=headers), timeout=60) as r:
+            json.loads(r.read().decode("utf-8"))
+            return {"model": model, "listed": True}
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            request(opener, urllib.request.Request(f"{API}/models/{model}", headers=headers), 60)  # exits with the message
+    except Exception:
+        pass
+    info = request(opener, urllib.request.Request(f"{API}/models", headers=headers), 60)
+    ids = [m.get("id") for m in (info.get("data") or []) if isinstance(m, dict)]
+    return {"model": model, "listed": model in ids}
+
+
+def relay_balance(opener, key):
+    """Balance from a relay (one-api / new-api style) via the legacy billing endpoints the official API dropped:
+    GET /dashboard/billing/subscription → hard_limit_usd (quota), GET /dashboard/billing/usage → total_usage (cents).
+    Returns {"total", "used", "remaining"} in USD, or None if the service doesn't support it."""
+    headers = {"Authorization": f"Bearer {key}"}
+    base = API[:-3] if API.endswith("/v1") else API  # these endpoints live at /v1/dashboard/... or /dashboard/...
+    for root in (API, base):
+        try:
+            with opener.open(urllib.request.Request(f"{root}/dashboard/billing/subscription", headers=headers), timeout=20) as r:
+                sub = json.loads(r.read().decode("utf-8"))
+            total = float(sub.get("hard_limit_usd") or sub.get("system_hard_limit_usd") or 0)
+            used = 0.0
+            try:
+                end = datetime.now().strftime("%Y-%m-%d")
+                q = f"{root}/dashboard/billing/usage?start_date=2000-01-01&end_date={end}"  # all-time usage
+                with opener.open(urllib.request.Request(q, headers=headers), timeout=20) as r:
+                    used = float(json.loads(r.read().decode("utf-8")).get("total_usage") or 0) / 100
+            except Exception:
+                pass
+            if total > 0:
+                return {"total": round(total, 4), "used": round(used, 4), "remaining": round(total - used, 4)}
+        except Exception:
+            continue
+    return None
 
 
 def write_failed(out_dir, stamp, name, endpoint, params, refs, error, secs):
@@ -268,11 +352,10 @@ def main():
 
     if a.check:
         key = load_key(cfg)
-        req = urllib.request.Request(f"{API}/models/{a.model}", headers={"Authorization": f"Bearer {key}"})
-        info = request(opener, req, 60)
+        r = probe(opener, key, a.model)
         if JSON_MODE:
-            return emit({"ok": True, "action": "check", "model": info.get("id")})
-        print(tr("check_ok", m=info.get("id")))
+            return emit({"ok": True, "action": "check", **r})
+        print(tr("check_ok" if r["listed"] else "check_ok_unlisted", m=a.model))
         return
 
     if a.prompt_file:
@@ -294,6 +377,7 @@ def main():
     endpoint = "/images/edits" if refs else "/images/generations"
     if not refs:
         params["moderation"] = a.moderation
+    params = compat_params(params, cfg)
 
     if a.dry_run and JSON_MODE:
         return emit({"ok": True, "action": "dry_run", "endpoint": endpoint, "refs": [str(p) for p in refs], "params": params})
@@ -321,13 +405,17 @@ def main():
         raise
     secs = time.time() - t0
     saved = []
-    for i, item in enumerate(resp.get("data", []), 1):
-        suffix = f"_{i}" if len(resp["data"]) > 1 else ""
+    data = resp.get("data") or []
+    if not data:
+        write_failed(out_dir, stamp, a.name, endpoint, params, [str(p) for p in refs], tr("no_image"), secs)
+        sys.exit(tr("no_image"))
+    for i, item in enumerate(data, 1):
+        suffix = f"_{i}" if len(data) > 1 else ""
         path = out_dir / f"{stamp}_{a.name}{suffix}.{a.format}"
-        path.write_bytes(base64.b64decode(item["b64_json"]))
+        path.write_bytes(image_bytes(item, opener, a.timeout))
         saved.append(str(path))
 
-    cost = calc_cost(resp.get("usage"), cfg)
+    cost = calc_cost(resp.get("usage"), cfg, len(saved))
     meta = {
         "time": stamp, "endpoint": endpoint, "seconds": round(secs, 1),
         "params": params, "refs": [str(p) for p in refs], "mask": a.mask,

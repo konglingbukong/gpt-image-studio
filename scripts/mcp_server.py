@@ -114,6 +114,15 @@ def tool_spending():
     lines = [gen.tr("sp_today", c=gen.fmt_cost(s["today"], cfg), n=s["count_today"]),
              gen.tr("sp_month", c=gen.fmt_cost(s["month"], cfg)),
              gen.tr("sp_all", c=gen.fmt_cost(s["all"], cfg))]
+    src = cfg.get("balance_source") or "auto"
+    if src == "relay" or (src == "auto" and "api.openai.com" not in gen.API):
+        try:
+            rb = gen.relay_balance(gen.build_opener(cfg), gen.load_key(cfg))
+        except SystemExit:
+            rb = None
+        if rb:
+            lines.append(gen.tr("sp_relay", c=gen.fmt_cost(rb["remaining"], cfg), total=rb["total"], used=rb["used"]))
+            return "\n".join(lines), False
     b = cfg.get("balance") or {}
     if b.get("amount") is not None:
         since = datetime.fromtimestamp(b.get("at") or time.time()).strftime("%Y%m%d-%H%M%S")

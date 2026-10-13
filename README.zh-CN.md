@@ -4,7 +4,11 @@
 
 **用你自己的 OpenAI API key 调用 `gpt-image-2.5` 的出图工作台。在 AI 智能体里说一句话就能出图，网页上实时看到图片、这张花了多少钱，以及还剩多少余额。**
 
-<!-- 截图：docs/screenshot.png -->
+![GPT Image 工作台：图库](docs/screenshot.png)
+
+*在智能体里说一句，网页上实时出现：*
+
+![AI 智能体出图时，网页图库实时显示进度](docs/agent-sync.png)
 
 ## 它能做什么
 
@@ -15,6 +19,7 @@
 - **图库**：收藏、按状态筛选（已完成 / 生成中 / 失败）、搜索、一键复用参数、把结果当参考图继续改。删除的图会移到 `.trash` 文件夹，不会直接抹掉。
 - **哪里都能打开**：同一个网页可以放在 GitHub Pages 上。在运行着本机服务的电脑上打开，会自动连上本机服务；在别的设备上打开就是「浏览器模式」，key 和图都只存在那个浏览器里。
 - **五种语言**：English、中文、日本語、한국어、Русский，默认跟随浏览器语言，也可以在网页上切换。
+- **支持中转站**：兼容 one-api、new-api 等 OpenAI 中转，支持返回图片链接、按张计费、直接读取中转站的真实余额，见下面的[中转站](#中转站兼容-openai-的中转服务)一节。
 - **零依赖**：只需要 Python 3.9 以上，不用 `pip install` 任何东西。
 
 ## 安装
@@ -60,6 +65,19 @@ key 也可以用环境变量 `OPENAI_API_KEY` 提供，或者写进 `config.json
 不管用哪种接法，出的图都存进同一个文件夹，并实时出现在网页工作台上。
 
 **已验证可用**：Claude Code、Codex（含 ChatGPT 桌面版）、WorkBuddy、Antigravity、DeepSeek Harness（dsh）。完整列表、各家的配置写法、接口格式和新智能体的接入步骤，见 **[docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)**。你用的智能体还没支持的话，欢迎到 Issues 提「适配申请」，或者参照 [CONTRIBUTING.md](CONTRIBUTING.md) 自己接好后提交 PR。
+
+## 中转站（兼容 OpenAI 的中转服务）
+
+很多人不是直连 OpenAI，而是通过中转站（one-api、new-api 这类）来用 gpt-image，这些也都能用：
+
+- **怎么填**：设置 → API 配置 里，API URL 填中转站的地址（一般以 `/v1` 结尾），API Key 填中转站给的 key。中转站的模型名不一样（比如叫 `gpt-image-2.5`）的话，在模型菜单里直接输入它的名字。
+- **返回图片链接**：有的中转站返回的是图片链接而不是图片数据，程序会自动下载保存，跟官方一样。
+- **严格的中转站**：如果中转站不认官方才有的参数（`moderation`、`output_format`、`background`），打开「**只发送基础参数**」就行。遇到这种报错时，提示里也会告诉你这么做。
+- **按张计费**：中转站大多按张收费。在「计费 → 按张计费」里填上单价，花费就按张算，不再按 token 算。
+- **真实余额**：中转站支持 one-api / new-api 的账单接口的话，会自动读取中转站的真实余额，不用手动校准。
+- **测试连接**：只支持 `GET /models` 的中转站也能正常测试。
+
+命令行对应的 `config.json` 字段：`"api_url"`、`"api_key"`、`"model"`、`"minimal_params": true`、`"rates": {"per_image": 0.04}`、`"balance_source": "auto" | "relay" | "manual"`。
 
 ## 命令行用法
 

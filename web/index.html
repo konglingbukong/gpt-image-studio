@@ -344,6 +344,8 @@ body.mode-local .browser-only{display:none!important}
           <div class="switch" id="connRow"><div><span data-i18n="conn.title"></span><small id="connHint"></small></div><button class="tg" id="connTg"></button></div>
           <div class="field local-only"><label data-i18n="proxy.label"></label><input class="inp" id="s_proxy" data-i18n-ph="ph.proxy">
             <span class="hint" data-i18n="proxy.hint"></span></div>
+          <div class="switch"><div><span data-i18n="compat.title"></span><small data-i18n="compat.hint"></small></div><button class="tg" id="s_minimal_params"></button></div>
+          <div class="hint" style="margin:8px 0 12px" data-i18n-html="relay.note"></div>
           <div class="row"><button class="btn" id="testBtn" data-i18n="btn.test"></button></div>
           <div class="msg" id="testMsg"></div>
         </section>
@@ -351,6 +353,9 @@ body.mode-local .browser-only{display:none!important}
         <section data-s="bal">
           <h3 data-i18n="bal.title"></h3>
           <div class="balbox" id="balBox"></div>
+          <div class="field"><label data-i18n="balsrc.label"></label><select class="inp" id="s_balance_source">
+            <option value="auto" data-i18n="balsrc.auto"></option><option value="relay" data-i18n="balsrc.relay"></option><option value="manual" data-i18n="balsrc.manual"></option></select>
+            <span class="hint" data-i18n="balsrc.hint"></span></div>
           <div class="field"><label data-i18n="bal.calLabel"></label>
             <div class="row"><input class="inp" id="s_balance" type="number" step="0.01" data-i18n-ph="ph.bal">
               <button class="btn" id="calBtn" data-i18n="btn.cal"></button></div>
@@ -363,8 +368,8 @@ body.mode-local .browser-only{display:none!important}
         <section data-s="habit">
           <h3 data-i18n="habit.title"></h3>
           <div class="grid2">
-            <div class="field"><label data-i18n="habit.model"></label><select class="inp" id="s_model">
-              <option value="gpt-image-2.5-sunburst">gpt-image-2.5-sunburst</option><option value="gpt-image-2.5-flare">gpt-image-2.5-flare</option></select></div>
+            <div class="field"><label data-i18n="habit.model"></label><input class="inp" id="s_model" list="modelList">
+              <datalist id="modelList"><option value="gpt-image-2.5-sunburst"><option value="gpt-image-2.5-flare"></datalist></div>
             <div class="field"><label data-i18n="habit.size"></label><input class="inp" id="s_size" data-i18n-ph="ph.size"></div>
             <div class="field"><label data-i18n="habit.quality"></label><select class="inp" id="s_quality">
               <option>low</option><option>medium</option><option>high</option><option>xhigh</option><option>max</option><option>auto</option></select></div>
@@ -386,7 +391,8 @@ body.mode-local .browser-only{display:none!important}
             <div class="field"><label data-i18n="price.textIn"></label><input class="inp" id="r_text_in" type="number" step="0.1"></div>
             <div class="field"><label data-i18n="price.imageIn"></label><input class="inp" id="r_image_in" type="number" step="0.1"></div>
             <div class="field"><label data-i18n="price.imageOut"></label><input class="inp" id="r_image_out" type="number" step="0.1"></div>
-            <div></div>
+            <div class="field"><label data-i18n="price.perImage"></label><input class="inp" id="r_per_image" type="number" step="0.001" placeholder="0">
+              <span class="hint" data-i18n="price.perImage.hint"></span></div>
             <div class="field"><label data-i18n="price.fxCode"></label><select class="inp" id="s_fx_code">
               <option value="" data-i18n="price.fxNone"></option><option>CNY</option><option>JPY</option><option>KRW</option><option>RUB</option>
               <option>EUR</option><option>GBP</option><option>TWD</option><option>HKD</option></select></div>
@@ -449,9 +455,15 @@ const money=v=>{const f=fx(v);return f?`${usd(v)} (${f})`:usd(v)};
  */
 const LOCAL="http://127.0.0.1:8765";
 let MODE="local", BASE="";
-const onLocalServer=()=>location.port==="8765"&&/^(127\.0\.0\.1|localhost|gpt-image\.localhost)$/.test(location.hostname);
+// served by a local service (any port, e.g. a second instance via GPT_IMAGE_PORT)?
+const isLocalHost=()=>location.protocol==="http:"&&/^(127\.0\.0\.1|localhost|gpt-image\.localhost)$/.test(location.hostname);
+let SERVED_LOCAL=false;
+const onLocalServer=()=>SERVED_LOCAL;
 async function detectMode(){
-  if(onLocalServer()){MODE="local";BASE="";return}
+  if(isLocalHost()){
+    try{const r=await fetch("/api/status",{signal:AbortSignal.timeout(1500)});
+      if(r.ok&&(r.headers.get("content-type")||"").includes("json")){SERVED_LOCAL=true;MODE="local";BASE="";return}}catch(e){}
+  }
   if(load("conn","auto")!=="browser"){
     try{const r=await fetch(LOCAL+"/api/status",{signal:AbortSignal.timeout(1500)});if(r.ok){MODE="local";BASE=LOCAL;return}}catch(e){}
   }
@@ -493,7 +505,9 @@ function renderComposer(){
   $("#lblQ").textContent=st.quality;
   $("#lblN").textContent=t("n.imgs",{n:st.n});
   $("#lblSize").textContent=$("#customSize").value.trim()||`${st.tier} · ${st.ratio}`;
-  $("#popModel").innerHTML=MODELS.map(([v,k])=>`<div class="opt ${st.model===v?"on":""}" data-v="${v}">${v}<small>${t(k)}</small></div>`).join("");
+  const known=MODELS.some(([v])=>v===st.model);
+  $("#popModel").innerHTML=MODELS.map(([v,k])=>`<div class="opt ${st.model===v?"on":""}" data-v="${v}">${v}<small>${t(k)}</small></div>`).join("")
+    +`<div style="padding:8px 4px 2px"><input class="inp" id="customModel" placeholder="${esc(t("model.customPh"))}" value="${known?"":esc(st.model)}"></div>`;
   $("#popQ").innerHTML=QUALS.map(v=>`<div class="opt ${st.quality===v?"on":""}" data-v="${v}">${v}<small>${t("q."+v)}</small></div>`).join("");
   $("#popN").innerHTML=[1,2,3,4].map(v=>`<div class="opt ${st.n===v?"on":""}" data-v="${v}">${t("n.imgs",{n:v})}</div>`).join("");
   $("#tiers").innerHTML=TIERS.map(v=>`<span class="chip ${st.tier===v?"on":""}" data-v="${v}">${v}</span>`).join("");
@@ -527,6 +541,9 @@ document.addEventListener("click",e=>{
 });
 function closePops(){$$(".pop").forEach(p=>p.classList.remove("open"));$$(".cbtn").forEach(b=>b.classList.remove("open"))}
 $("#popModel").onclick=e=>{const o=e.target.closest(".opt");if(o){st.model=o.dataset.v;closePops();renderComposer();saveComposer()}};
+// custom model name (relays often name models differently)
+$("#popModel").addEventListener("change",e=>{if(e.target.id==="customModel"){const v=e.target.value.trim();if(v){st.model=v;closePops();renderComposer();saveComposer()}}});
+$("#popModel").addEventListener("keydown",e=>{if(e.target.id==="customModel"&&e.key==="Enter"){e.preventDefault();e.target.blur()}});
 $("#popQ").onclick=e=>{const o=e.target.closest(".opt");if(o){st.quality=o.dataset.v;closePops();renderComposer();saveComposer()}};
 $("#popN").onclick=e=>{const o=e.target.closest(".opt");if(o){st.n=+o.dataset.v;closePops();renderComposer();saveComposer()}};
 $("#tiers").onclick=e=>{const c=e.target.closest(".chip");if(c){st.tier=c.dataset.v;$("#customSize").value="";renderComposer();saveComposer()}};
@@ -752,7 +769,10 @@ const kv=(k,v)=>`<span>${t(k)}</span><b>${v}</b>`;
 function fillSettings(){
   $("#ver").textContent="v"+S.version;
   for(const k of ["api_url","proxy","size","timeout","out_dir","low_balance_warn","confirm_over_usd"])$("#s_"+k).value=S[k]??"";
-  for(const k of ["model","quality","format","moderation"])$("#s_"+k).value=S[k]||$("#s_"+k).options[0].value;
+  for(const k of ["quality","format","moderation"])$("#s_"+k).value=S[k]||$("#s_"+k).options[0].value;
+  $("#s_model").value=S.model||"gpt-image-2.5-sunburst";
+  $("#s_balance_source").value=S.balance_source||"auto";
+  $("#s_minimal_params").classList.toggle("on",!!S.minimal_params);
   if(!S.api_url)$("#s_api_url").value="https://api.openai.com/v1";
   if(S.low_balance_warn==null)$("#s_low_balance_warn").value=5;
   if(S.timeout==null)$("#s_timeout").value=900;
@@ -766,6 +786,7 @@ function fillSettings(){
   $("#s_admin_key").value="";$("#s_admin_key").placeholder=S.admin_key_masked?t("key.current",{k:S.admin_key_masked}):t("admin.ph");
   $("#s_clear_after_submit").classList.toggle("on",!!S.clear_after_submit);
   for(const k of ["text_in","image_in","image_out"])$("#r_"+k).value=S.rates[k];
+  $("#r_per_image").value=+S.rates.per_image?S.rates.per_image:"";
   $("#s_balance").value="";
   drawBalBox();
   const imgs=HIST.reduce((a,m)=>a+m.files.length,0),tot=HIST.reduce((a,m)=>a+(m.cost_usd||0),0);
@@ -785,21 +806,26 @@ function fillSettings(){
 function drawBalBox(){
   const b=BAL||{};
   if(!b.set){$("#balBox").innerHTML=`<div style="grid-column:1/-1" class="hint">${t("bal.notCal")}</div>`;return}
+  if(b.source==="relay"){
+    $("#balBox").innerHTML=`<div><small>${t("bal.label")}</small><b style="color:${b.low?"var(--warn)":"var(--text)"}">${usd(b.remaining)}</b><small>${fx(b.remaining)}</small></div>
+      <div><small>${t("bal.relayTotal")}</small><b>${usd(b.amount)}</b><small>${t("bal.srcRelay")}</small></div>
+      <div><small>${t("bal.relayUsed")}</small><b>${usd(b.spent)}</b><small>${t("bal.srcRelay")}</small></div>`;return}
   const d=new Date(b.at*1000);
   $("#balBox").innerHTML=`<div><small>${t("bal.remaining")}</small><b style="color:${b.low?"var(--warn)":"var(--text)"}">${usd(b.remaining)}</b><small>${fx(b.remaining)}</small></div>
     <div><small>${t("bal.atCal")}</small><b>${usd(b.amount)}</b><small>${d.toLocaleString(LANG==="zh"?"zh-CN":LANG)}</small></div>
     <div><small>${t("bal.spentAfter")}</small><b>${usd(b.spent)}</b><small>${t(b.source==="admin"?"bal.srcAdmin":"bal.srcLocal")}</small></div>
     ${b.error?`<div style="grid-column:1/-1;color:var(--warn);font-size:12px">${esc(b.error)}</div>`:""}`;
 }
-$("#s_clear_after_submit").onclick=e=>e.currentTarget.classList.toggle("on");
+$("#s_clear_after_submit").onclick=$("#s_minimal_params").onclick=e=>e.currentTarget.classList.toggle("on");
 function collect(){
   const num=id=>{const v=$(id).value;return v===""?null:+v};
   const fxCode=$("#s_fx_code").value, fxRate=num("#s_fx_rate");
-  const b={api_url:$("#s_api_url").value.trim(),proxy:$("#s_proxy").value.trim(),model:$("#s_model").value,size:$("#s_size").value.trim()||"2K 16:9",
+  const b={api_url:$("#s_api_url").value.trim(),proxy:$("#s_proxy").value.trim(),model:$("#s_model").value.trim()||"gpt-image-2.5-sunburst",size:$("#s_size").value.trim()||"2K 16:9",
     quality:$("#s_quality").value,format:$("#s_format").value,moderation:$("#s_moderation").value,out_dir:$("#s_out_dir").value.trim(),
     fx_code:fxCode,fx_rate:fxRate,low_balance_warn:num("#s_low_balance_warn"),timeout:num("#s_timeout"),confirm_over_usd:num("#s_confirm_over_usd"),
     clear_after_submit:$("#s_clear_after_submit").classList.contains("on"),agent_name:$("#s_agent_name").value.trim(),
-    rates:{text_in:num("#r_text_in"),image_in:num("#r_image_in"),image_out:num("#r_image_out")}};
+    minimal_params:$("#s_minimal_params").classList.contains("on"),balance_source:$("#s_balance_source").value,
+    rates:{text_in:num("#r_text_in"),image_in:num("#r_image_in"),image_out:num("#r_image_out"),per_image:num("#r_per_image")||0}};
   if(fxCode==="CNY"&&fxRate)b.usd_to_cny=fxRate;  // 兼容老字段（命令行脚本用它显示人民币）
   if($("#s_api_key").value.trim())b.api_key=$("#s_api_key").value.trim();
   if($("#s_admin_key").value.trim())b.admin_key=$("#s_admin_key").value.trim();

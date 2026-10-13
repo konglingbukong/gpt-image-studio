@@ -8,10 +8,10 @@ const BB = (() => {
   const DEF = {
     api_url: "https://api.openai.com/v1", model: "gpt-image-2.5-sunburst", size: "2K 16:9", quality: "high",
     format: "png", moderation: "auto", low_balance_warn: 5, timeout: 900,
-    confirm_over_usd: 0.5, clear_after_submit: false, rates: { text_in: 5, image_in: 8, image_out: 30 },
+    confirm_over_usd: 0.5, clear_after_submit: false, rates: { text_in: 5, image_in: 8, image_out: 30, per_image: 0 },
   };
   const SETTABLE = ["api_url", "model", "size", "quality", "format", "moderation", "usd_to_cny", "low_balance_warn",
-    "timeout", "rates", "clear_after_submit", "confirm_over_usd", "agent_name", "fx_code", "fx_rate"];
+    "timeout", "rates", "clear_after_submit", "confirm_over_usd", "agent_name", "fx_code", "fx_rate", "minimal_params", "balance_source"];
   const CFG_KEY = "gis_cfg";
 
   // ---------- 设置 ----------
@@ -95,7 +95,9 @@ const BB = (() => {
   }
 
   // ---------- 计费（移植自 gen.py calc_cost / spend_summary） ----------
-  function calcCost(usage, c) {
+  // per_image > 0 (relays that bill per image) → per_image × n; otherwise from token usage (null if none)
+  function calcCost(usage, c, n = 1) {
+    if (+c.rates.per_image > 0) return Math.round(+c.rates.per_image * Math.max(n, 1) * 1e5) / 1e5;
     if (!usage) return null;
     const r = c.rates, ind = usage.input_tokens_details || {}, outd = usage.output_tokens_details || {};
     const textIn = ind.text_tokens ?? ((usage.input_tokens || 0) - (ind.image_tokens || 0));
@@ -111,7 +113,7 @@ const BB = (() => {
       const c = m.cost_usd || 0;
       t.all += c;
       if (m.time.startsWith(month)) t.month += c;
-      if (m.time.startsWith(today)) { t.today += c; t.count_today++; }
+      if (m.time.startsWith(today)) { t.today += c; if (m.status !== "failed") t.count_today++; }
     }
     for (const k of ["today", "month", "all"]) t[k] = Math.round(t[k] * 1e4) / 1e4;
     return t;
@@ -140,7 +142,32 @@ const BB = (() => {
     costCache = { key, at: Date.now(), value: total, error };
     return costCache;
   }
+  let relayCache = { at: 0, value: null };
+  async function relayBalance(c) {
+    if (Date.now() - relayCache.at < 60000) return relayCache.value;
+    let v = null;
+    const base = apiBase(c), roots = [base, base.replace(/\/v1$/, "")];
+    for (const root of roots) {
+      try {
+        const h = { headers: { Authorization: `Bearer ${c.api_key}` }, signal: AbortSignal.timeout(15000) };
+        const sub = await (await fetch(`${root}/dashboard/billing/subscription`, h)).json();
+        const total = +(sub.hard_limit_usd || sub.system_hard_limit_usd || 0);
+        let used = 0;
+        try { used = +((await (await fetch(`${root}/dashboard/billing/usage?start_date=2000-01-01&end_date=${new Date().toISOString().slice(0, 10)}`, h)).json()).total_usage || 0) / 100; } catch (e) {}
+        if (total > 0) { v = { total, used, remaining: total - used }; break; }
+      } catch (e) {}
+    }
+    relayCache = { at: Date.now(), value: v };
+    return v;
+  }
+
   async function balance(c, recs) {
+    const src = c.balance_source || "auto";
+    if (c.api_key && (src === "relay" || (src === "auto" && !/api\.openai\.com/.test(apiBase(c))))) {
+      const rb = await relayBalance(c);
+      if (rb) return { set: true, source: "relay", amount: rb.total, spent: Math.round(rb.used * 1e4) / 1e4,
+        remaining: Math.round(rb.remaining * 1e4) / 1e4, at: null, error: null, low: rb.remaining < +(c.low_balance_warn ?? 5) };
+    }
     const b = c.balance;
     if (!b || b.amount == null) return { set: false };
     const since = stampOf(new Date(b.at * 1000));
@@ -168,7 +195,7 @@ const BB = (() => {
   async function openaiError(r) {
     let msg = "";
     try { msg = (await r.json()).error?.message || ""; } catch (e) { msg = (await r.text().catch(() => "")).slice(0, 500); }
-    return t("be.openaiErr", { code: r.status, msg });
+    return t("be.openaiErr", { code: r.status, msg }) + (r.status === 400 && /param|argument|unknown|unrecognized|not supported/i.test(msg) ? " — " + t("compat.title") + "?" : "");
   }
   // OpenAI 的 POST 出错时（401/400/429…）响应里不带 CORS 头，浏览器只给一句 "Failed to fetch"，
   // 看不到真正原因。这里用一个带 CORS 的 GET 再探一次，推断是 key、网络还是这次请求本身被拒。
@@ -177,6 +204,17 @@ const BB = (() => {
     if (!r.ok && /401/.test(r.msg)) return t("be.keyBad");
     if (!r.ok) return t("be.cantReach", { e: r.raw || r.msg });
     return t("be.rejected");
+  }
+
+  // image data from a response item: base64 (official API) or a URL (many relays)
+  async function itemBlob(item, fmt) {
+    if (item.b64_json) return dataUrlToBlob(`data:image/${fmt};base64,${item.b64_json}`);
+    if (item.url && item.url.startsWith("data:")) return dataUrlToBlob(item.url);
+    if (item.url) {
+      try { const r = await fetch(item.url); if (r.ok) return await r.blob(); throw new Error("HTTP " + r.status); }
+      catch (e) { throw Object.assign(new Error(t("be.imgDownload", { e: e.message })), { openai: true }); }
+    }
+    throw Object.assign(new Error(t("be.noImage")), { openai: true });
   }
 
   async function generate(body) {
@@ -192,6 +230,7 @@ const BB = (() => {
     const refs = body.refs || [];
     const endpoint = refs.length ? "/images/edits" : "/images/generations";
     if (!refs.length) params.moderation = body.moderation || c.moderation;
+    if (c.minimal_params) for (const k of ["moderation", "output_format", "background"]) delete params[k];  // relays that reject extras
     const now = new Date(), stamp = stampOf(now), name = safeName(body.name);
     const id = `${stamp}_${name}_${Math.random().toString(36).slice(2, 6)}`;
     const job = { started: now.getTime() / 1000, name, source: "web", refs: refs.length, size, quality: params.quality, model: params.model, prompt };
@@ -214,14 +253,15 @@ const BB = (() => {
       if (!r.ok) throw Object.assign(new Error(await openaiError(r)), { openai: true });
       const resp = await r.json();
       const files = [];
-      for (const [i, item] of (resp.data || []).entries()) {
+      if (!(resp.data || []).length) throw Object.assign(new Error(t("be.noImage")), { openai: true });
+      for (const [i, item] of resp.data.entries()) {
         const imgId = `${id}_${i + 1}`;
-        await putImage(imgId, dataUrlToBlob(`data:image/${fmt};base64,${item.b64_json}`));
+        await putImage(imgId, await itemBlob(item, fmt));
         files.push(imgId);
       }
       navigator.storage?.persist?.(); // 尽量别让浏览器在空间紧张时清掉图片
       const rec = { ...base, status: "done", seconds: Math.round((performance.now() - t0) / 100) / 10,
-        usage: resp.usage || null, cost_usd: calcCost(resp.usage, c), files };
+        usage: resp.usage || null, cost_usd: calcCost(resp.usage, c, files.length), files };
       await putRecord(rec);
       return { ...rec, files: await Promise.all(files.map(urlOf)) };
     } catch (e) {
@@ -283,18 +323,23 @@ const BB = (() => {
     }
     saveCfg(c);
     costCache.key = null;
+    relayCache.at = 0;
     return settingsView();
   }
   async function test(b) {
     const c = cfg(), key = (b.api_key || "").trim() || c.api_key;
     if (!key) return { ok: false, msg: t("be.noKeyTest") };
-    const t0 = performance.now();
+    const t0 = performance.now(), base = (b.api_url || c.api_url || DEF.api_url).replace(/\/+$/, ""), model = b.model || c.model;
+    const opt = { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(30000) };
     try {
-      const r = await fetch(`${(b.api_url || c.api_url || DEF.api_url).replace(/\/+$/, "")}/models/${b.model || c.model}`,
-        { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(30000) });
+      let r = await fetch(`${base}/models/${model}`, opt).catch(() => null);
+      if (r && r.ok) return { ok: true, msg: t("be.testOk", { ms: Math.round(performance.now() - t0), m: model }) };
+      if (r && (r.status === 401 || r.status === 403)) return { ok: false, msg: await openaiError(r) };
+      // many relays only implement GET /models
+      r = await fetch(`${base}/models`, opt);
       if (!r.ok) return { ok: false, msg: await openaiError(r) };
-      const d = await r.json();
-      return { ok: true, msg: t("be.testOk", { ms: Math.round(performance.now() - t0), m: d.id }) };
+      const ids = ((await r.json()).data || []).map(m => m.id);
+      return { ok: true, msg: ids.includes(model) ? t("be.testOk", { ms: Math.round(performance.now() - t0), m: model }) : t("be.unlisted", { m: model }) };
     } catch (e) {
       return { ok: false, msg: t("be.cantConnect", { e: e.message }), raw: e.message };
     }
