@@ -101,6 +101,8 @@ def generate(body):
         except SystemExit as e:
             gen.write_failed(OUT_DIR, stamp, name, endpoint, params, [str(p) for p in refs], str(e), time.time() - t0)
             raise
+        except gen.Lost as e:  # generated (probably billed) but never received
+            return None, gen.record_lost(OUT_DIR, stamp, name, endpoint, params, refs, e, time.time() - t0, CFG)
         secs = round(time.time() - t0, 1)
 
         saved = []
@@ -111,7 +113,11 @@ def generate(body):
         for i, item in enumerate(data, 1):
             suffix = f"_{i}" if len(data) > 1 else ""
             path = OUT_DIR / f"{stamp}_{name}{suffix}.{fmt}"
-            path.write_bytes(gen.image_bytes(item, opener, timeout))
+            try:
+                path.write_bytes(gen.image_bytes(item, opener, timeout))
+            except gen.Lost as e:
+                urls = [d.get("url") for d in data if d.get("url")]
+                return None, gen.record_lost(OUT_DIR, stamp, name, endpoint, params, refs, e, secs, CFG, {"urls": urls})
             saved.append(str(path))
         meta = {
             "time": stamp, "endpoint": endpoint, "seconds": secs, "params": params,
@@ -359,6 +365,14 @@ def save_settings(body):
             cfg.pop("balance", None)
         else:
             cfg["balance"] = {"amount": float(body["balance_amount"]), "at": time.time()}
+    if body.get("topup_amount"):
+        # a top-up just raises the calibrated amount; the calibration time (and spending since) stays
+        b = cfg.get("balance")
+        if not b or b.get("amount") is None:
+            raise ValueError(gen.tr("topup_needs_cal"))
+        amt = float(body["topup_amount"])
+        b["amount"] = round(float(b["amount"]) + amt, 4)
+        b.setdefault("topups", []).append({"amount": amt, "at": time.time()})
     gen.save_config(cfg)
     reload_config()
     _cost_cache["key"] = None

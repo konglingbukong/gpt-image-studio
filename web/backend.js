@@ -113,7 +113,7 @@ const BB = (() => {
       const c = m.cost_usd || 0;
       t.all += c;
       if (m.time.startsWith(month)) t.month += c;
-      if (m.time.startsWith(today)) { t.today += c; if (m.status !== "failed") t.count_today++; }
+      if (m.time.startsWith(today)) { t.today += c; if (m.status !== "failed" || m.charged) t.count_today++; }
     }
     for (const k of ["today", "month", "all"]) t[k] = Math.round(t[k] * 1e4) / 1e4;
     return t;
@@ -217,6 +217,14 @@ const BB = (() => {
     throw Object.assign(new Error(t("be.noImage")), { openai: true });
   }
 
+  // best guess for a billed-but-lost call: per-image price, else the average of earlier runs with the same specs
+  async function estimateCost(params, c, hasRefs) {
+    if (+c.rates.per_image > 0) return +c.rates.per_image * (params.n || 1);
+    const same = (await allRecords()).filter(m => m.status === "done" && m.cost_usd && (m.files || []).length
+      && m.params.size === params.size && m.params.quality === params.quality && ((m.refs || []).length > 0) === hasRefs);
+    return same.length ? same.reduce((a, m) => a + m.cost_usd / m.files.length, 0) / same.length * (params.n || 1) : null;
+  }
+
   async function generate(body) {
     const c = cfg();
     if (!c.api_key) return { error: t("be.noKey") };
@@ -251,7 +259,9 @@ const BB = (() => {
           headers: { Authorization: `Bearer ${c.api_key}`, "Content-Type": "application/json" }, body: JSON.stringify(params) });
       }
       if (!r.ok) throw Object.assign(new Error(await openaiError(r)), { openai: true });
-      const resp = await r.json();
+      let resp;
+      try { resp = await r.json(); }  // the image exists (and was billed) but the body broke off while downloading
+      catch (e) { throw Object.assign(new Error(e.message), { lost: true }); }
       const files = [];
       if (!(resp.data || []).length) throw Object.assign(new Error(t("be.noImage")), { openai: true });
       for (const [i, item] of resp.data.entries()) {
@@ -265,6 +275,12 @@ const BB = (() => {
       await putRecord(rec);
       return { ...rec, files: await Promise.all(files.map(urlOf)) };
     } catch (e) {
+      if (e.lost) {
+        const est = await estimateCost(params, c, refs.length > 0);
+        const msg = t("be.lost", { c: est != null ? "$" + est.toFixed(4) : t("be.lostUnknown") });
+        await putRecord({ ...base, status: "failed", charged: true, error: msg, seconds: Math.round((performance.now() - t0) / 100) / 10, cost_usd: est || 0, files: [] });
+        return { error: msg };
+      }
       const msg = e.name === "TimeoutError" ? t("be.timeout")
         : e.openai ? e.message : await diagnose(c);
       await putRecord({ ...base, status: "failed", error: msg, seconds: Math.round((performance.now() - t0) / 100) / 10, cost_usd: 0, files: [] });
@@ -320,6 +336,11 @@ const BB = (() => {
     if ("balance_amount" in b) {
       if (b.balance_amount === "" || b.balance_amount == null) delete c.balance;
       else c.balance = { amount: +b.balance_amount, at: Date.now() / 1000 };
+    }
+    if (+b.topup_amount) {  // a top-up raises the calibrated amount; calibration time stays
+      if (!c.balance || c.balance.amount == null) return { error: t("toast.needCal") };
+      c.balance.amount = Math.round((+c.balance.amount + +b.topup_amount) * 1e4) / 1e4;
+      (c.balance.topups ||= []).push({ amount: +b.topup_amount, at: Date.now() / 1000 });
     }
     saveCfg(c);
     costCache.key = null;

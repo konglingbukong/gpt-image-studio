@@ -18,6 +18,7 @@ import os
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from datetime import datetime
@@ -93,7 +94,7 @@ def spend_summary(out_dir):
             tot["month"] += c
         if m.get("time", "").startswith(today):
             tot["today"] += c
-            if m.get("status") != "failed":  # failed attempts aren't charged
+            if m.get("status") != "failed" or m.get("charged"):  # plain failures aren't charged; lost ones are
                 tot["count_today"] += 1
     return {k: (round(v, 4) if isinstance(v, float) else v) for k, v in tot.items()}
 
@@ -127,7 +128,9 @@ def load_key(cfg):
 
 
 def build_opener(cfg):
+    global CFG_PROXY
     proxy = os.environ.get("GPT_IMAGE_PROXY") or cfg.get("proxy")
+    CFG_PROXY = proxy or ""
     if proxy:
         return urllib.request.build_opener(urllib.request.ProxyHandler({"http": proxy, "https": proxy}))
     return urllib.request.build_opener()  # no proxy configured: follow the system proxy settings
@@ -199,14 +202,96 @@ def request(opener, req, timeout):
         sys.exit(tr("cant_reach", e=f"{type(e).__name__}: {e}"))
 
 
+# ---- generation requests: phase-aware transport ----
+# A generation call goes connect → send → wait (the image is being generated) → read (download).
+# Failing in connect / send means OpenAI never got the full request: nothing generated, nothing charged,
+# so it's safe to retry. Failing in wait / read means the image was most likely generated and charged,
+# but the Images API keeps no copy to fetch again — retrying would charge a second time. Those raise Lost.
+
+CONNECT_RETRIES = 3
+
+
+class Lost(Exception):
+    """The request reached the API but the response never arrived complete (probably charged)."""
+
+    def __init__(self, phase, err):
+        super().__init__(f"{phase}: {type(err).__name__}: {err}")
+        self.phase, self.err = phase, err
+
+
+def _proxy_for(host):
+    if host in ("127.0.0.1", "localhost", "::1"):
+        return None
+    p = os.environ.get("GPT_IMAGE_PROXY") or CFG_PROXY or urllib.request.getproxies().get("https")
+    return urllib.parse.urlsplit(p if "://" in p else "http://" + p) if p else None
+
+
+CFG_PROXY = ""  # set by main() / the web server from config.json
+
+
+def _connection(url, timeout):
+    import http.client
+    import ssl
+    host, port = url.hostname, url.port or (443 if url.scheme == "https" else 80)
+    proxy = _proxy_for(host)
+    if url.scheme == "https":
+        ctx = ssl.create_default_context()
+        if proxy:
+            conn = http.client.HTTPSConnection(proxy.hostname, proxy.port or 80, timeout=timeout, context=ctx)
+            conn.set_tunnel(host, port)
+            return conn
+        return http.client.HTTPSConnection(host, port, timeout=timeout, context=ctx)
+    return http.client.HTTPConnection(host, port, timeout=timeout)
+
+
+def _post(path, headers, body, timeout):
+    import http.client
+    url = urllib.parse.urlsplit(API + path)
+    target = url.path + (f"?{url.query}" if url.query else "")
+    for attempt in range(1, CONNECT_RETRIES + 1):
+        conn, phase = _connection(url, timeout), "connect"
+        try:
+            conn.connect()
+            phase = "send"
+            conn.request("POST", target, body=body, headers={**headers, "Content-Length": str(len(body))})
+            phase = "wait"
+            resp = conn.getresponse()
+            phase = "read"
+            chunks = []
+            while True:
+                b = resp.read(1 << 16)
+                if not b:
+                    break
+                chunks.append(b)
+            data, status = b"".join(chunks), resp.status
+            break
+        except (OSError, http.client.HTTPException) as e:
+            if phase in ("connect", "send"):
+                if attempt < CONNECT_RETRIES:
+                    say(tr("retry_connect", n=attempt, total=CONNECT_RETRIES - 1, e=f"{type(e).__name__}"))
+                    time.sleep(2 * attempt)
+                    continue
+                sys.exit(tr("cant_reach", e=f"{type(e).__name__}: {e}"))
+            raise Lost(phase, e)
+        finally:
+            conn.close()
+    if status >= 400:
+        text = data.decode("utf-8", "replace")
+        try:
+            msg = json.loads(text)["error"]["message"]
+        except Exception:
+            msg = text[:800]
+        hint = tr("hint_minimal") if status == 400 and re.search(r"param|argument|unknown|unrecognized|not supported", msg, re.I) else ""
+        sys.exit(tr("openai_err", code=status, msg=msg) + hint)
+    try:
+        return json.loads(data.decode("utf-8"))
+    except ValueError as e:  # truncated body that still "ended" cleanly
+        raise Lost("read", e)
+
+
 def post_json(opener, key, path, payload, timeout):
-    req = urllib.request.Request(
-        API + path,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-        method="POST",
-    )
-    return request(opener, req, timeout)
+    body = json.dumps(payload).encode("utf-8")
+    return _post(path, {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}, body, timeout)
 
 
 def post_multipart(opener, key, path, fields, files, timeout):
@@ -219,13 +304,8 @@ def post_multipart(opener, key, path, fields, files, timeout):
         head = f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"; filename="{fp.name}"\r\nContent-Type: {mime}\r\n\r\n'
         chunks.append(head.encode("utf-8") + fp.read_bytes() + b"\r\n")
     chunks.append(f"--{boundary}--\r\n".encode("utf-8"))
-    req = urllib.request.Request(
-        API + path,
-        data=b"".join(chunks),
-        headers={"Authorization": f"Bearer {key}", "Content-Type": f"multipart/form-data; boundary={boundary}"},
-        method="POST",
-    )
-    return request(opener, req, timeout)
+    return _post(path, {"Authorization": f"Bearer {key}", "Content-Type": f"multipart/form-data; boundary={boundary}"},
+                 b"".join(chunks), timeout)
 
 
 # ---- OpenAI-compatible relay services (中转站 / one-api / new-api …) ----
@@ -253,7 +333,7 @@ def image_bytes(item, opener, timeout=300):
             with opener.open(urllib.request.Request(url, headers={"User-Agent": "gpt-image-studio"}), timeout=timeout) as r:
                 return r.read()
         except Exception as e:
-            sys.exit(tr("img_download_fail", e=f"{type(e).__name__}: {e}"))
+            raise Lost("download", e)
     sys.exit(tr("no_image"))
 
 
@@ -301,10 +381,43 @@ def relay_balance(opener, key):
     return None
 
 
-def write_failed(out_dir, stamp, name, endpoint, params, refs, error, secs):
-    """Keep a record for failures too (no image) so the web UI can show them under "Failed"."""
+def estimate_cost(out_dir, params, cfg, has_refs):
+    """Best guess for a call that was billed but never came back: per-image price if set, otherwise the
+    average of earlier successful runs with the same size / quality / references. None if no history."""
+    n = int(params.get("n") or 1)
+    per_image = float(((cfg.get("rates") or {}).get("per_image")) or 0)
+    if per_image > 0:
+        return round(per_image * n, 5)
+    same = []
+    for f in Path(out_dir).glob("*.json"):
+        try:
+            m = json.loads(f.read_text(encoding="utf-8-sig"))
+        except Exception:
+            continue
+        p = m.get("params") or {}
+        if (m.get("status") != "failed" and m.get("cost_usd") and m.get("files") and p.get("size") == params.get("size")
+                and p.get("quality") == params.get("quality") and bool(m.get("refs")) == bool(has_refs)):
+            same.append(m["cost_usd"] / len(m["files"]))
+    return round(sum(same) / len(same) * n, 5) if same else None
+
+
+def record_lost(out_dir, stamp, name, endpoint, params, refs, err, secs, cfg, extra=None):
+    """Write the "lost" record and return the message to show."""
+    est = estimate_cost(out_dir, params, cfg, bool(refs))
+    msg = tr("lost", phase=err.phase, e=f"{type(err.err).__name__}",
+             c=fmt_cost(est, cfg) if est is not None else tr("lost_unknown"))
+    write_failed(out_dir, stamp, name, endpoint, params, [str(p) for p in refs], msg, secs,
+                 charged=True, cost=est or 0, extra={"lost_phase": err.phase, **(extra or {})})
+    return msg
+
+
+def write_failed(out_dir, stamp, name, endpoint, params, refs, error, secs, charged=False, cost=0, extra=None):
+    """Keep a record for failures too (no image) so the web UI can show them under "Failed".
+    charged=True marks a "lost" result: generated (and billed) but never received; cost is an estimate."""
     meta = {"time": stamp, "endpoint": endpoint, "seconds": round(secs, 1), "params": params,
-            "refs": refs, "status": "failed", "error": error, "cost_usd": 0, "files": []}
+            "refs": refs, "status": "failed", "error": error, "cost_usd": cost or 0, "files": [], **(extra or {})}
+    if charged:
+        meta["charged"] = True
     (Path(out_dir) / f"{stamp}_{name}.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
@@ -403,6 +516,8 @@ def main():
     except SystemExit as e:
         write_failed(out_dir, stamp, a.name, endpoint, params, [str(p) for p in refs], str(e), time.time() - t0)
         raise
+    except Lost as e:
+        sys.exit(record_lost(out_dir, stamp, a.name, endpoint, params, refs, e, time.time() - t0, cfg))
     secs = time.time() - t0
     saved = []
     data = resp.get("data") or []
@@ -412,7 +527,11 @@ def main():
     for i, item in enumerate(data, 1):
         suffix = f"_{i}" if len(data) > 1 else ""
         path = out_dir / f"{stamp}_{a.name}{suffix}.{a.format}"
-        path.write_bytes(image_bytes(item, opener, a.timeout))
+        try:
+            path.write_bytes(image_bytes(item, opener, a.timeout))
+        except Lost as e:
+            urls = [d.get("url") for d in data if d.get("url")]
+            sys.exit(record_lost(out_dir, stamp, a.name, endpoint, params, refs, e, secs, cfg, {"urls": urls}))
         saved.append(str(path))
 
     cost = calc_cost(resp.get("usage"), cfg, len(saved))

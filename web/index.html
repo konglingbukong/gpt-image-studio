@@ -360,6 +360,10 @@ body.mode-local .browser-only{display:none!important}
             <div class="row"><input class="inp" id="s_balance" type="number" step="0.01" data-i18n-ph="ph.bal">
               <button class="btn" id="calBtn" data-i18n="btn.cal"></button></div>
             <span class="hint" data-i18n="bal.calHint"></span></div>
+          <div class="field"><label data-i18n="bal.topupLabel"></label>
+            <div class="row"><input class="inp" id="s_topup" type="number" step="0.01" min="0" placeholder="5">
+              <button class="btn" id="topupBtn" data-i18n="btn.topup"></button></div>
+            <span class="hint" data-i18n="bal.topupHint"></span></div>
           <div class="field"><label data-i18n="admin.label"></label><input class="inp" id="s_admin_key" type="password" autocomplete="off">
             <span class="hint" data-i18n="admin.hint"></span></div>
           <div class="field"><label data-i18n="lowwarn.label"></label><input class="inp" id="s_low_balance_warn" type="number" step="1"></div>
@@ -661,7 +665,7 @@ function drawGallery(flashTime){
     return `<div class="card ${fail?"failed":""} ${m.time===flashTime?"new":""}" data-i="${i}">${img}
       <div class="body"><div class="p">${esc(m.params.prompt)}</div>
         ${fail?`<div class="errtxt">${esc(m.error||t("fail"))}</div>`:""}
-        <div class="tags">${fail?`<span class="tag fail">${t("fail")}</span>`:`<span class="tag cost">${usd(m.cost_usd)}</span>`}
+        <div class="tags">${fail?`<span class="tag fail">${t("fail")}</span>${m.charged?`<span class="tag cost">${t("tag.charged",{v:m.cost_usd?usd(m.cost_usd):"?"})}</span>`:""}`:`<span class="tag cost">${usd(m.cost_usd)}</span>`}
           <span class="tag">${m.params.quality}</span><span class="tag">${m.params.model.replace("gpt-image-","")}</span>
           ${(m.refs||[]).length?`<span class="tag">${t("tag.refs",{n:m.refs.length})}</span>`:""}</div>
         <div class="acts"><span class="t">${tfmt(m.time)}${m.seconds?` · ${Math.round(m.seconds)}s`:""}</span>
@@ -843,6 +847,12 @@ $("#calBtn").onclick=async()=>{
   const v=$("#s_balance").value;if(v===""){toast(t("toast.fillBal"));return}
   const r=await api("/api/settings",{...collect(),balance_amount:+v});
   if(r.error){toast(r.error);return}S=r;await poll(true);fillSettings();toast(t("toast.calibrated"));
+};
+$("#topupBtn").onclick=async()=>{
+  const v=+$("#s_topup").value;if(!v||v<=0){toast(t("toast.fillTopup"));return}
+  if(!(BAL&&BAL.set&&BAL.source!=="relay")){toast(t("toast.needCal"));return}
+  const r=await api("/api/settings",{topup_amount:v});
+  if(r.error){toast(r.error);return}S=r;$("#s_topup").value="";await poll(true);fillSettings();toast(t("toast.topupDone",{v:usd(v)}));
 };
 $("#shutBtn").onclick=async()=>{
   if(!confirm(t("confirm.shutdown")))return;
