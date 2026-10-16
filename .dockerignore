@@ -1,0 +1,9 @@
+# never bake personal config / keys / local rules into an image
+config.json
+rules.local.md
+.env
+.env.*
+.git
+__pycache__/
+*.pyc
+docs/*.png
