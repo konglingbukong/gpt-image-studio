@@ -1,0 +1,76 @@
+{
+ "name": {
+  "message": "GPT Image Studio · Balance Sync"
+ },
+ "desc": {
+  "message": "Reads your OpenAI credit balance from the billing page and syncs it to your local GPT Image Studio. Reads nothing else."
+ },
+ "lastBalance": {
+  "message": "OpenAI credit balance"
+ },
+ "interval": {
+  "message": "Auto refresh"
+ },
+ "port": {
+  "message": "Workbench port"
+ },
+ "syncNow": {
+  "message": "Sync now"
+ },
+ "hint": {
+  "message": "Open platform.openai.com → Billing once while logged in; after that it refreshes on its own."
+ },
+ "off": {
+  "message": "Off"
+ },
+ "justNow": {
+  "message": "just now"
+ },
+ "minAgo": {
+  "message": "$N$ min ago",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "hourAgo": {
+  "message": "$N$ h ago",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "needLogin": {
+  "message": "Couldn't read it — are you logged in to platform.openai.com in this browser?"
+ },
+ "notFound": {
+  "message": "Billing page opened, but no balance found on it"
+ },
+ "readAt": {
+  "message": "Read $N$",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "never": {
+  "message": "Not read yet"
+ },
+ "pushed": {
+  "message": "Sent to workbench"
+ },
+ "pushFail": {
+  "message": "Not sent: $N$",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "syncing": {
+  "message": "Syncing…"
+ }
+}

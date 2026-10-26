@@ -1,0 +1,76 @@
+{
+ "name": {
+  "message": "GPT Image 工作台 · 余额同步"
+ },
+ "desc": {
+  "message": "从 OpenAI 后台的账单页读取余额，同步到本机的 GPT Image 工作台。除此之外什么都不读。"
+ },
+ "lastBalance": {
+  "message": "OpenAI 余额"
+ },
+ "interval": {
+  "message": "自动刷新"
+ },
+ "port": {
+  "message": "工作台端口"
+ },
+ "syncNow": {
+  "message": "立即同步"
+ },
+ "hint": {
+  "message": "登录状态下打开一次 platform.openai.com 的 Billing 页，之后就会自动刷新。"
+ },
+ "off": {
+  "message": "关闭"
+ },
+ "justNow": {
+  "message": "刚刚"
+ },
+ "minAgo": {
+  "message": "$N$ 分钟前",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "hourAgo": {
+  "message": "$N$ 小时前",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "needLogin": {
+  "message": "没读到：这个浏览器里登录 platform.openai.com 了吗？"
+ },
+ "notFound": {
+  "message": "打开了账单页，但页面上没找到余额"
+ },
+ "readAt": {
+  "message": "$N$读取",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "never": {
+  "message": "还没读取过"
+ },
+ "pushed": {
+  "message": "已同步到工作台"
+ },
+ "pushFail": {
+  "message": "没同步上：$N$",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "syncing": {
+  "message": "同步中…"
+ }
+}

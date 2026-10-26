@@ -18,6 +18,7 @@
 - **Cost tracking.** The cost of every image is calculated from the token usage OpenAI actually returns. Spending is totalled for today, this month and overall. Calibrate your balance once and the remaining amount is tracked for you (OpenAI has no balance API, so this is the most accurate method available).
 - **Gallery tools.** Favorites, filters by status (completed / generating / failed), search, one-click reuse of settings, and "use as reference" to keep iterating on a result. Deleted items go to a `.trash` folder instead of being erased.
 - **Use it anywhere.** The same page can be hosted on GitHub Pages. On a computer that runs the local service it connects to that service automatically; anywhere else it runs in *browser mode*, where your key and images stay in that browser.
+- **Automatic balance (official API).** A small browser extension reads your real balance from OpenAI's billing page and syncs it — see [extension/README.md](extension/README.md).
 - **5 languages.** English, 中文, 日本語, 한국어 and Русский. The language follows your browser and can be switched in the page.
 - **Relay services supported.** Works with OpenAI-compatible relays (one-api, new-api …), including image-URL responses, per-image pricing and reading the relay's real balance. See [Relay services](#relay-services-openai-compatible-proxies).
 - **Zero dependencies.** You only need Python 3.9 or later. Nothing to `pip install`.

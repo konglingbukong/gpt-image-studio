@@ -1,0 +1,76 @@
+{
+ "name": {
+  "message": "GPT Image スタジオ · 残高同期"
+ },
+ "desc": {
+  "message": "OpenAI の請求ページからクレジット残高を読み取り、ローカルの GPT Image スタジオに同期します。それ以外は何も読み取りません。"
+ },
+ "lastBalance": {
+  "message": "OpenAI クレジット残高"
+ },
+ "interval": {
+  "message": "自動更新"
+ },
+ "port": {
+  "message": "ワークベンチのポート"
+ },
+ "syncNow": {
+  "message": "今すぐ同期"
+ },
+ "hint": {
+  "message": "ログインした状態で platform.openai.com の Billing ページを一度開けば、以降は自動で更新されます。"
+ },
+ "off": {
+  "message": "オフ"
+ },
+ "justNow": {
+  "message": "たった今"
+ },
+ "minAgo": {
+  "message": "$N$ 分前",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "hourAgo": {
+  "message": "$N$ 時間前",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "needLogin": {
+  "message": "読み取れませんでした。このブラウザで platform.openai.com にログインしていますか？"
+ },
+ "notFound": {
+  "message": "請求ページは開きましたが、残高が見つかりませんでした"
+ },
+ "readAt": {
+  "message": "$N$に取得",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "never": {
+  "message": "まだ取得していません"
+ },
+ "pushed": {
+  "message": "ワークベンチに送信済み"
+ },
+ "pushFail": {
+  "message": "送信できませんでした：$N$",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "syncing": {
+  "message": "同期中…"
+ }
+}

@@ -1,0 +1,76 @@
+{
+ "name": {
+  "message": "GPT Image Studio · синхронизация баланса"
+ },
+ "desc": {
+  "message": "Считывает баланс OpenAI со страницы оплаты и передаёт его в локальный GPT Image Studio. Больше ничего не читает."
+ },
+ "lastBalance": {
+  "message": "Баланс OpenAI"
+ },
+ "interval": {
+  "message": "Автообновление"
+ },
+ "port": {
+  "message": "Порт рабочего места"
+ },
+ "syncNow": {
+  "message": "Синхронизировать"
+ },
+ "hint": {
+  "message": "Один раз откройте страницу Billing на platform.openai.com, войдя в аккаунт, — дальше обновление идёт само."
+ },
+ "off": {
+  "message": "Выкл."
+ },
+ "justNow": {
+  "message": "только что"
+ },
+ "minAgo": {
+  "message": "$N$ мин назад",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "hourAgo": {
+  "message": "$N$ ч назад",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "needLogin": {
+  "message": "Не удалось прочитать — вы вошли в platform.openai.com в этом браузере?"
+ },
+ "notFound": {
+  "message": "Страница оплаты открылась, но баланс на ней не найден"
+ },
+ "readAt": {
+  "message": "Прочитано $N$",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "never": {
+  "message": "Ещё не читалось"
+ },
+ "pushed": {
+  "message": "Отправлено в рабочее место"
+ },
+ "pushFail": {
+  "message": "Не отправлено: $N$",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "syncing": {
+  "message": "Синхронизация…"
+ }
+}

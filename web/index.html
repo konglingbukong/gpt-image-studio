@@ -165,7 +165,14 @@ select option{background:var(--panel)}
 .lb{position:fixed;inset:0;background:rgba(10,10,8,.88);display:none;z-index:50;padding:20px;gap:20px}
 .lb.open{display:flex}
 .lb .pic{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-width:0;min-height:0}
-.lb .pic img{max-width:100%;max-height:calc(100vh - 90px);border-radius:10px;object-fit:contain}
+.lb .stage{user-select:none;-webkit-user-select:none;flex:1;width:100%;min-height:0;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.lb .stage>img{max-width:100%;max-height:100%;border-radius:10px;object-fit:contain;transform-origin:center;cursor:zoom-in;user-select:none;-webkit-user-drag:none;touch-action:none}
+.lb .stage canvas{position:absolute;inset:0;width:100%;height:100%;display:none;cursor:grab;touch-action:none}
+.lb .stage.zoomed canvas{display:block}
+.lb .stage.zoomed>img{visibility:hidden}
+.lb .stage.dragging canvas{cursor:grabbing}
+.lb .zoom{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;font-size:12px;padding:4px 10px;border-radius:99px;pointer-events:none;opacity:0;transition:opacity .2s}
+.lb .stage.zoomed .zoom{opacity:1}
 .lb .thumbs{display:flex;gap:8px}
 .lb .thumbs img{width:54px;height:54px;object-fit:cover;border-radius:8px;opacity:.5;cursor:pointer;border:2px solid transparent}
 .lb .thumbs img.on{opacity:1;border-color:var(--accent)}
@@ -317,7 +324,7 @@ body.mode-local .browser-only{display:none!important}
 <!-- 大图 -->
 <div class="lb" id="lb">
   <button class="x" id="lbX">×</button>
-  <div class="pic"><img id="lbImg" alt=""><div class="thumbs" id="lbThumbs"></div></div>
+  <div class="pic"><div class="stage" id="lbStage"><img id="lbImg" alt="" draggable="false"><canvas id="lbCanvas"></canvas><span class="zoom" id="lbZoom"></span></div><div class="thumbs" id="lbThumbs"></div></div>
   <div class="info" id="lbInfo"></div>
 </div>
 
@@ -360,6 +367,7 @@ body.mode-local .browser-only{display:none!important}
             <div class="row"><input class="inp" id="s_balance" type="number" step="0.01" data-i18n-ph="ph.bal">
               <button class="btn" id="calBtn" data-i18n="btn.cal"></button></div>
             <span class="hint" data-i18n="bal.calHint"></span></div>
+          <div class="hint" style="margin:0 0 14px;padding:10px 12px;border:1px dashed var(--line);border-radius:10px" data-i18n-html="bal.extNote"></div>
           <div class="field"><label data-i18n="bal.topupLabel"></label>
             <div class="row"><input class="inp" id="s_topup" type="number" step="0.01" min="0" placeholder="5">
               <button class="btn" id="topupBtn" data-i18n="btn.topup"></button></div>
@@ -610,6 +618,8 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)&&!$("#settings").classList.contains("open")){e.preventDefault();go()}
   if(e.key==="Escape"){closeLb();closeSettings();closePops()}
   if($("#lb").classList.contains("open")&&(e.key==="ArrowLeft"||e.key==="ArrowRight"))stepLb(e.key==="ArrowLeft"?-1:1);
+  if($("#lb").classList.contains("open")&&!e.target.closest("input,textarea")){
+    if(e.key==="0")zoomReset();else if(e.key==="+"||e.key==="=")zoomBy(1.25);else if(e.key==="-")zoomBy(0.8)}
 });
 
 /* ---------- 图库 ---------- */
@@ -701,7 +711,7 @@ function closeLb(){$("#lb").classList.remove("open")}
 function stepLb(d){const m=VIEW[LB.i];if(m.files.length>1&&LB.f+d>=0&&LB.f+d<m.files.length){LB.f+=d}else{const ni=LB.i+d;if(ni<0||ni>=VIEW.length)return;LB.i=ni;LB.f=d<0?VIEW[ni].files.length-1:0}drawLb()}
 function drawLb(){
   const m=VIEW[LB.i],f=m.files[LB.f];
-  $("#lbImg").src=fileUrl(f);
+  $("#lbImg").src=fileUrl(f);zoomReset();
   $("#lbThumbs").innerHTML=m.files.length>1?m.files.map((x,j)=>`<img src="${fileUrl(x)}" data-j="${j}" class="${j===LB.f?"on":""}">`).join(""):"";
   const u=m.usage||{};
   $("#lbInfo").innerHTML=`<div class="kv">
@@ -727,7 +737,69 @@ function drawLb(){
 }
 $("#lbThumbs").onclick=e=>{const x=e.target.closest("img");if(x){LB.f=+x.dataset.j;drawLb()}};
 $("#lbX").onclick=closeLb;
-$("#lb").onclick=e=>{if(e.target.id==="lb"||e.target.classList.contains("pic"))closeLb()};
+$("#lb").onclick=e=>{if(e.target.id==="lb"||e.target.classList.contains("pic")||(e.target.id==="lbStage"&&Z.s===1&&!Z.moved))closeLb()};
+
+/* 大图缩放：滚轮以鼠标为中心缩放，放大后拖动平移，双击在适应窗口和原图大小之间切换。
+ * 放大后改用 canvas 只画看得见的那一块：CSS 放大整张图时，浏览器拖动中会分块重绘，露出马赛克条 */
+const Z={s:1,x:0,y:0,moved:false};
+let zoomRaf=0, BMP=null, BMPSRC="";
+// 图一加载完就整张解码成位图常驻：直接从 <img> 取像素时，浏览器会丢掉大图的解码结果再重解，拖动中就会闪
+$("#lbImg").addEventListener("load",()=>{
+  const im=$("#lbImg"),src=im.src;if(BMP){BMP.close();BMP=null}
+  createImageBitmap(im).then(b=>{if(im.src===src){BMP=b;BMPSRC=src;if(Z.s>1)zoomDraw()}else b.close()}).catch(()=>{});
+});
+// 拖动不许把图拖出画面：图比画面大时边缘最多贴到画面边，比画面小的那一维居中
+function zoomClamp(){
+  const st=$("#lbStage"),im=$("#lbImg"),w=im.clientWidth*Z.s,h=im.clientHeight*Z.s;
+  const mx=Math.max(0,(w-st.clientWidth)/2),my=Math.max(0,(h-st.clientHeight)/2);
+  Z.x=Math.min(mx,Math.max(-mx,Z.x));Z.y=Math.min(my,Math.max(-my,Z.y));
+}
+function zoomApply(){
+  if(Z.s>1)zoomClamp();
+  const st=$("#lbStage"),entering=Z.s>1&&!st.classList.contains("zoomed");
+  if(entering){cancelAnimationFrame(zoomRaf);zoomDraw()}   // 先画好画布再藏原图，免得空一帧
+  else if(Z.s>1&&!zoomRaf)zoomRaf=requestAnimationFrame(zoomDraw);
+  st.classList.toggle("zoomed",Z.s>1);
+  $("#lbZoom").textContent=Math.round(Z.s*100)+"%";
+}
+function zoomDraw(){
+  zoomRaf=0;if(Z.s===1)return;
+  const st=$("#lbStage"),cv=$("#lbCanvas"),im=$("#lbImg"),dpr=window.devicePixelRatio||1;
+  const pic=BMP&&BMPSRC===im.src?BMP:im;   // 换图后位图还没好就先用原图
+  const W=st.clientWidth,H=st.clientHeight;
+  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr)}
+  const ctx=cv.getContext("2d",{willReadFrequently:true});   // 用 CPU 画：有的显卡驱动下 GPU 画布拖动会闪
+  ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);   // 下面全按屏幕物理像素算
+  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
+  const w=im.clientWidth*Z.s,h=im.clientHeight*Z.s;   // 适应窗口时的大小 × 倍数
+  // 位置对齐到整物理像素：落在半像素上时每帧都要重新混合像素，拖动中发丝、睫毛会闪；整张交给画布裁剪，取样相位才不随拖动变
+  const dx=Math.round((W/2+Z.x-w/2)*dpr),dy=Math.round((H/2+Z.y-h/2)*dpr);
+  ctx.drawImage(pic,dx,dy,w*dpr,h*dpr);
+}
+window.addEventListener("resize",()=>{if(Z.s>1)zoomApply()});
+function zoomReset(){Z.s=1;Z.x=Z.y=0;zoomApply()}
+function zoomMax(){const im=$("#lbImg");return Math.max(8,(im.naturalWidth/(im.clientWidth||1))*3)}
+// 缩放到 s，保持屏幕上 (px,py) 这一点不动；不给点就以画面中心为准
+function zoomTo(s,px,py){
+  const r=$("#lbStage").getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+  if(px==null){px=cx;py=cy}
+  s=Math.min(zoomMax(),Math.max(1,s));
+  if(s===1){zoomReset();return}
+  const qx=(px-cx-Z.x)/Z.s,qy=(py-cy-Z.y)/Z.s;   // 这一点在原始图上的位置
+  Z.x=px-cx-s*qx;Z.y=py-cy-s*qy;Z.s=s;zoomApply();
+}
+const zoomBy=(k,px,py)=>zoomTo(Z.s*k,px,py);
+$("#lbStage").addEventListener("wheel",e=>{e.preventDefault();zoomBy(Math.exp(-e.deltaY*0.0015),e.clientX,e.clientY)},{passive:false});
+$("#lbStage").addEventListener("dblclick",e=>{
+  if(Z.s>1)zoomReset();else{const im=$("#lbImg");zoomTo(Math.max(2,im.naturalWidth/im.clientWidth),e.clientX,e.clientY)}});
+$("#lbStage").addEventListener("pointerdown",e=>{
+  Z.moved=false;if(Z.s===1||e.button!==0)return;
+  e.preventDefault();   // 不然真实鼠标拖动会顺带选中旁边的文字，一闪一闪
+  const sx=e.clientX-Z.x,sy=e.clientY-Z.y,st=$("#lbStage");st.classList.add("dragging");st.setPointerCapture(e.pointerId);
+  const mv=ev=>{Z.x=ev.clientX-sx;Z.y=ev.clientY-sy;Z.moved=true;zoomApply()};
+  const up=()=>{st.classList.remove("dragging");st.removeEventListener("pointermove",mv);st.removeEventListener("pointerup",up);st.removeEventListener("pointercancel",up)};
+  st.addEventListener("pointermove",mv);st.addEventListener("pointerup",up);st.addEventListener("pointercancel",up);
+});
 
 /* ---------- 顶栏：余额 / 花费 / 同步 ---------- */
 let lastSig=null,pollT;
@@ -807,6 +879,7 @@ function fillSettings(){
     +kv("about.localSvc","http://127.0.0.1:8765"+t("about.localOnly"))+kv("about.skillDir",esc(S.skill_dir))
     +kv("about.config",esc(S.config_file))+kv("about.outDir",esc(S.out_dir))+kv("about.start",t("about.startVal"));
 }
+function agoText(ts){const min=Math.round((Date.now()/1000-ts)/60);return min<1?t("time.justNow"):min<60?t("time.minAgo",{n:min}):min<1440?t("time.hourAgo",{n:Math.round(min/60)}):t("time.dayAgo",{n:Math.round(min/1440)})}
 function drawBalBox(){
   const b=BAL||{};
   if(!b.set){$("#balBox").innerHTML=`<div style="grid-column:1/-1" class="hint">${t("bal.notCal")}</div>`;return}
@@ -816,7 +889,8 @@ function drawBalBox(){
       <div><small>${t("bal.relayUsed")}</small><b>${usd(b.spent)}</b><small>${t("bal.srcRelay")}</small></div>`;return}
   const d=new Date(b.at*1000);
   $("#balBox").innerHTML=`<div><small>${t("bal.remaining")}</small><b style="color:${b.low?"var(--warn)":"var(--text)"}">${usd(b.remaining)}</b><small>${fx(b.remaining)}</small></div>
-    <div><small>${t("bal.atCal")}</small><b>${usd(b.amount)}</b><small>${d.toLocaleString(LANG==="zh"?"zh-CN":LANG)}</small></div>
+    ${b.synced?`<div><small>${t("bal.syncedAmount")}</small><b>${usd(b.amount)}</b><small>${t("bal.syncedAgo",{t:agoText(b.at)})}</small></div>`
+      :`<div><small>${t("bal.atCal")}</small><b>${usd(b.amount)}</b><small>${d.toLocaleString(LANG==="zh"?"zh-CN":LANG)}</small></div>`}
     <div><small>${t("bal.spentAfter")}</small><b>${usd(b.spent)}</b><small>${t(b.source==="admin"?"bal.srcAdmin":"bal.srcLocal")}</small></div>
     ${b.error?`<div style="grid-column:1/-1;color:var(--warn);font-size:12px">${esc(b.error)}</div>`:""}`;
 }

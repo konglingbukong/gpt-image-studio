@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "__MSG_name__",
+  "version": "0.1.0",
+  "description": "__MSG_desc__",
+  "default_locale": "en",
+  "permissions": ["alarms", "storage", "tabs"],
+  "host_permissions": [
+    "https://platform.openai.com/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://platform.openai.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": { "default_popup": "popup.html", "default_title": "__MSG_name__" }
+}

@@ -297,10 +297,26 @@ def balance():
         spent = local_spend_since(ts)
     remaining = float(b["amount"]) - spent
     return {
-        "set": True, "amount": float(b["amount"]), "at": ts, "spent": round(spent, 4),
+        "set": True, "amount": float(b["amount"]), "at": ts, "spent": round(spent, 4), "synced": b.get("source") == "extension",
         "remaining": round(remaining, 4), "source": source, "error": err,
         "low": remaining < float(CFG.get("low_balance_warn", 5)),
     }
+
+
+def balance_sync(body):
+    """The real balance, read from the OpenAI billing page by the browser extension: becomes the new baseline."""
+    try:
+        amount = float(body.get("amount"))
+    except (TypeError, ValueError):
+        return {"error": "bad amount"}
+    if not -1000 <= amount <= 1_000_000:
+        return {"error": "amount out of range"}
+    cfg = gen.load_config()
+    cfg["balance"] = {"amount": round(amount, 4), "at": time.time(), "source": str(body.get("source") or "extension")[:20]}
+    gen.save_config(cfg)
+    reload_config()
+    _cost_cache["key"] = None
+    return {"ok": True, "balance": balance()}
 
 
 # ---------------- settings ----------------
@@ -447,8 +463,10 @@ class Handler(BaseHTTPRequestHandler):
             return False
         origin = self.headers.get("Origin")
         self.cors_origin = None
+        # the balance-sync browser extension may post (only) to this one endpoint
+        ext_ok = urlparse(self.path).path == "/api/balance-sync" and (origin or "").startswith(("chrome-extension://", "moz-extension://"))
         if origin:
-            if origin.rstrip("/").lower() not in allowed_origins():
+            if not ext_ok and origin.rstrip("/").lower() not in allowed_origins():
                 self.send(403, {"error": gen.tr("origin_denied", o=origin)})
                 return False
             self.cors_origin = origin
@@ -523,6 +541,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, save_settings(body))
             except Exception as e:
                 return self.send(200, {"error": gen.tr("save_fail", e=e)})
+        if path == "/api/balance-sync":
+            return self.send(200, balance_sync(body))
         if path == "/api/fav":
             return self.send(200, set_fav(body.get("id", ""), bool(body.get("fav"))))
         if path == "/api/delete":

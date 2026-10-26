@@ -1,0 +1,76 @@
+{
+ "name": {
+  "message": "GPT Image 스튜디오 · 잔액 동기화"
+ },
+ "desc": {
+  "message": "OpenAI 청구 페이지에서 크레딧 잔액을 읽어 로컬 GPT Image 스튜디오에 동기화합니다. 그 외에는 아무것도 읽지 않습니다."
+ },
+ "lastBalance": {
+  "message": "OpenAI 크레딧 잔액"
+ },
+ "interval": {
+  "message": "자동 새로고침"
+ },
+ "port": {
+  "message": "작업대 포트"
+ },
+ "syncNow": {
+  "message": "지금 동기화"
+ },
+ "hint": {
+  "message": "로그인한 상태로 platform.openai.com의 Billing 페이지를 한 번 열면 이후에는 자동으로 새로고침됩니다."
+ },
+ "off": {
+  "message": "끔"
+ },
+ "justNow": {
+  "message": "방금"
+ },
+ "minAgo": {
+  "message": "$N$분 전",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "hourAgo": {
+  "message": "$N$시간 전",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "needLogin": {
+  "message": "읽지 못했습니다. 이 브라우저에서 platform.openai.com에 로그인했나요?"
+ },
+ "notFound": {
+  "message": "청구 페이지는 열었지만 잔액을 찾지 못했습니다"
+ },
+ "readAt": {
+  "message": "$N$ 읽음",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "never": {
+  "message": "아직 읽지 않음"
+ },
+ "pushed": {
+  "message": "작업대로 전송됨"
+ },
+ "pushFail": {
+  "message": "전송 실패: $N$",
+  "placeholders": {
+   "n": {
+    "content": "$1"
+   }
+  }
+ },
+ "syncing": {
+  "message": "동기화 중…"
+ }
+}
