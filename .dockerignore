@@ -1,5 +1,6 @@
 # never bake personal config / keys / local rules into an image
 config.json
+reference-libraries.local.json
 rules.local.md
 .env
 .env.*

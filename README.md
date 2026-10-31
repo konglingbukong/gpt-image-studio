@@ -23,6 +23,17 @@
 - **Relay services supported.** Works with OpenAI-compatible relays (one-api, new-api …), including image-URL responses, per-image pricing and reading the relay's real balance. See [Relay services](#relay-services-openai-compatible-proxies).
 - **Zero dependencies.** You only need Python 3.9 or later. Nothing to `pip install`.
 
+### Local outfit and pose libraries
+
+**New in v0.5.0.** The first time you open the **local** workbench, a banner offers **1,407 outfits** and **288 pose groups with 1,439 angle images**. After the download choice has been visible for 20 seconds, the studio starts fetching the missing libraries from their upstream GitHub repositories. Both together take about **820 MB** to download. Allow **1.7 GB** of free space during setup.
+
+- Choose **Skip download** to save that choice, or **Stop download** while it runs. To install later, open **Outfits & poses → Download now**. **Retry** keeps completed libraries and fetches the unfinished library again.
+- The default folder is `~/Pictures/gpt-image-libraries`. Set `GPT_IMAGE_LIBRARY_DIR` before startup to choose another drive, or `GPT_IMAGE_AUTO_DOWNLOAD=0` to skip automatic downloads in advance. A standalone GitHub Pages session uses browser mode. To install libraries, launch the local service.
+- In the composer, choose an outfit, or a pose and camera angle, then **Add as reference**. References are numbered in attachment order, including your own uploads. Browsing uses local files. Generating sends the selected originals to your configured image API.
+- Already have classified files? Create `reference-libraries.local.json` next to `config.json`, with `outfits.root` and/or `poses.root`. Configured libraries take precedence. Outfits use `category/subcategory/ID.webp`. Poses use `type/category/pose group/angle_ID.png`. The optional `thumbnails` folder mirrors those paths using WebP for outfits and JPG for poses. [Configuration example](README.zh-CN.md#本地服装与姿势图库).
+
+Each download comes from a pinned upstream revision, is checked before installation and keeps its source license. The studio's MIT license covers the studio code. The outfit source sets separate terms for repackaging the images. The pose source designates its images and original data for **non-commercial use only** and credits [@giaaibusi](https://x.com/giaaibusi). [Outfit source and asset terms](https://github.com/paipiange/nvzhuang/blob/f13741ebc09c73a63b92f626a115a1bb74ed779f/docs/LICENSE-DECISION.md) · [Pose source and terms](https://github.com/paipiange/ai-pose-gallery-zh/blob/0596708b11fe7ce874ac519e4f2538c92918b07f/LICENSE).
+
 ## Install
 
 ### As a Claude Code skill (recommended)
@@ -111,4 +122,4 @@ The UI layout is inspired by [CookSleep/gpt_image_playground](https://github.com
 
 ## License
 
-[MIT](LICENSE)
+The studio code is licensed under [MIT](LICENSE). Downloaded images retain their [upstream asset terms](#local-outfit-and-pose-libraries).

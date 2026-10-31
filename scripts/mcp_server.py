@@ -25,7 +25,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import gen  # noqa: E402
 
-SERVER_INFO = {"name": "gpt-image", "version": "0.4"}
+SERVER_INFO = {"name": "gpt-image", "version": "0.5.0"}
 SUPPORTED = ["2025-06-18", "2025-03-26", "2024-11-05"]
 
 TOOLS = [

@@ -18,9 +18,11 @@ from urllib.parse import unquote, urlparse
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "scripts"))
 import gen  # noqa: E402
+from reference_library import KINDS, MIME, ReferenceLibrary
+from reference_setup import ReferenceSetup
 
 PORT = int(os.environ.get("GPT_IMAGE_PORT") or 8765)  # override to run a second instance
-VERSION = "0.3"
+VERSION = "0.5.0"
 CFG = {}
 OUT_DIR = Path()
 
@@ -33,6 +35,8 @@ def reload_config():
 
 
 reload_config()
+LIBRARIES = ReferenceLibrary(gen.CONFIG_FILE.with_name("reference-libraries.local.json"))
+REFERENCE_SETUP = ReferenceSetup(LIBRARIES)
 
 
 def safe_name(s):
@@ -504,8 +508,30 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path in ("/", "/index.html"):
             return self.send(200, (HERE / "index.html").read_bytes(), "text/html; charset=utf-8")
-        if path in ("/backend.js", "/i18n.js"):
+        if path in ("/backend.js", "/i18n.js", "/reference-picker.js", "/reference-setup.js"):
             return self.send(200, (HERE / path[1:]).read_bytes(), "text/javascript; charset=utf-8")
+        if path == "/reference-picker.css":
+            return self.send(200, (HERE / path[1:]).read_bytes(), "text/css; charset=utf-8")
+        if path == "/api/reference-setup":
+            return self.reference_setup()
+        if path.startswith("/api/references/"):
+            parts = path[len("/api/references/"):].split("/")
+            if len(parts) == 1 and parts[0] in KINDS:
+                try:
+                    catalog = LIBRARIES.catalog(parts[0])
+                except (OSError, ValueError, TypeError, AttributeError, RuntimeError):
+                    return self.send(500, {"error": "Could not read the reference library"})
+                return self.send(200, catalog)
+            if len(parts) == 3:
+                try:
+                    asset = LIBRARIES.asset(*parts)
+                    if asset:
+                        data = asset.read_bytes()
+                except (OSError, RuntimeError):
+                    asset = None
+                if asset:
+                    return self.send(200, data, MIME[asset.suffix.lower()])
+            return self.send(404, {"error": "Reference not found"})
         if path == "/api/history":
             return self.send(200, history())
         if path == "/api/status":
@@ -522,12 +548,26 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(404, {"error": "not found"})
         self.send(404, {"error": "not found"})
 
+    def reference_setup(self, body=None):
+        try:
+            if body is None:
+                status = REFERENCE_SETUP.status()
+            elif isinstance(body, dict) and body.get("action") in ("start", "auto", "skip"):
+                status = REFERENCE_SETUP.action(body["action"])
+            else:
+                return self.send(400, {"error": "Unknown library setup action"})
+        except (OSError, ValueError, TypeError, AttributeError):
+            return self.send(500, {"error": "Could not access the local library settings"})
+        return self.send(200, status)
+
     def do_POST(self):
         if not self.guard():
             return
         path = urlparse(self.path).path
         length = int(self.headers.get("Content-Length") or 0)
         body = json.loads(self.rfile.read(length) or b"{}")
+        if path == "/api/reference-setup":
+            return self.reference_setup(body)
         if path == "/api/size":
             try:
                 return self.send(200, {"size": gen.parse_size(body.get("size", ""))})

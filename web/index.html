@@ -228,6 +228,7 @@ body.mode-local .browser-only{display:none!important}
 .toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:10px;font-size:13px;z-index:80;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.on{opacity:1}
 </style>
+<link rel="stylesheet" href="reference-picker.css">
 </head>
 <body>
 
@@ -272,6 +273,18 @@ body.mode-local .browser-only{display:none!important}
 </header>
 
 <main class="wrap">
+  <div id="libSetupHome">
+    <section id="libSetup" class="lib-setup" hidden aria-labelledby="libSetupTitle">
+      <div><strong id="libSetupTitle" data-i18n="setup.title"></strong>
+        <p id="libSetupText"></p>
+        <a id="libSetupTerms" href="https://github.com/paipiange/ai-pose-gallery-zh/blob/0596708b11fe7ce874ac519e4f2538c92918b07f/LICENSE" target="_blank" rel="noopener noreferrer" data-i18n="setup.terms"></a>
+      </div>
+      <div class="lib-setup-actions">
+        <button type="button" class="btn pri" id="libSetupStart"></button>
+        <button type="button" class="btn" id="libSetupSkip"></button>
+      </div>
+    </section>
+  </div>
   <div class="toolbar">
     <button class="fbtn" id="favF" data-i18n-title="title.favOnly"><svg class="ic"><use href="#i-star"/></svg></button>
     <div class="dd"><button class="ddbtn" id="stBtn"><span id="stLbl"></span><svg class="ic" style="width:14px;height:14px"><use href="#i-down"/></svg></button>
@@ -303,6 +316,7 @@ body.mode-local .browser-only{display:none!important}
     <div class="ctl"><button class="cbtn" data-pop="popN"><span id="lblN"></span></button>
       <div class="pop" id="popN" style="min-width:150px"></div></div>
     <button class="cbtn" id="addRef" data-i18n-title="title.addRef"><svg class="ic"><use href="#i-plus"/></svg><span data-i18n="btn.ref"></span></button>
+    <button class="cbtn local-only" id="openReferencePicker" aria-haspopup="dialog" aria-controls="referencePicker"><svg class="ic"><use href="#i-folder"/></svg><span data-i18n="lib.title"></span></button>
     <div class="ctl"><button class="cbtn" data-pop="popMore" data-i18n-title="title.more"><svg class="ic"><use href="#i-more"/></svg></button>
       <div class="pop" id="popMore" style="width:280px">
         <div class="field"><label data-i18n="f.name"></label><input class="inp" id="name" data-i18n-ph="ph.name"></div>
@@ -437,6 +451,41 @@ body.mode-local .browser-only{display:none!important}
   </div>
 </div>
 
+<dialog id="referencePicker" aria-labelledby="libTitle">
+  <div><header class="lib-head">
+    <h2 id="libTitle" data-i18n="lib.title"></h2>
+    <button type="button" id="libDone" class="btn" data-i18n="lib.done"></button>
+  </header><div id="libSetupPicker"></div></div>
+  <div class="lib-tabs">
+    <button type="button" class="btn" data-kind="outfits" aria-pressed="true" data-i18n="lib.outfits"></button>
+    <button type="button" class="btn" data-kind="poses" aria-pressed="false" data-i18n="lib.poses"></button>
+  </div>
+  <div class="lib-filters">
+    <form id="libSearchForm" role="search" autocomplete="off">
+      <input class="inp" id="libSearch" type="search" name="reference-library-query" autocomplete="off" data-i18n-ph="lib.search" data-i18n-title="lib.search">
+    </form>
+    <select class="inp" id="libCategory" data-i18n-title="lib.categories"></select>
+    <select class="inp" id="libSection" data-i18n-title="lib.sections"></select>
+  </div>
+  <div class="lib-content">
+    <section class="lib-browse">
+      <div id="libGrid"></div>
+      <p id="libState" role="status"></p>
+      <nav class="lib-pages">
+        <button type="button" id="libPrev" class="btn" data-i18n="lib.prev"></button>
+        <span id="libCount" aria-live="polite"></span>
+        <button type="button" id="libNext" class="btn" data-i18n="lib.next"></button>
+      </nav>
+    </section>
+    <section class="lib-detail" id="libDetail" hidden>
+      <img id="libPreview" alt="">
+      <div class="lib-info"><strong id="libName"></strong><small id="libPath"></small></div>
+      <div class="lib-angles" id="libAngles"></div>
+      <button type="button" id="libAdd" class="btn pri"></button>
+    </section>
+  </div>
+  <footer class="lib-foot"><span id="libMessage" role="status"></span><span id="libRefCount"></span></footer>
+</dialog>
 <div class="toast" id="toast"></div>
 
 <script src="i18n.js"></script>
@@ -508,7 +557,7 @@ $("#connTg").onclick=()=>{const on=!$("#connTg").classList.contains("on");store(
 function drawLangMenu(){$("#langMenu").innerHTML=LANGS.map(([c,n])=>`<div data-l="${c}" class="${LANG===c?"on":""}">${n}</div>`).join("")}
 $("#langBtn").onclick=e=>{e.stopPropagation();drawLangMenu();$("#langMenu").classList.toggle("open")};
 $("#langMenu").onclick=e=>{const d=e.target.closest("[data-l]");if(!d)return;setLang(d.dataset.l);$("#langMenu").classList.remove("open");rerender()};
-function rerender(){applyI18n();applyMode();renderComposer();drawRefs();drawGallery();poll(true);if($("#settings").classList.contains("open"))fillSettings()}
+function rerender(){applyI18n();applyMode();renderComposer();drawRefs();drawGallery();poll(true);if($("#settings").classList.contains("open"))fillSettings();document.dispatchEvent(new Event("studio-language"))}
 
 /* ---------- 底部参数 ---------- */
 function sizeText(){const c=$("#customSize").value.trim();return c||`${st.tier} ${st.ratio}`}
@@ -576,12 +625,27 @@ function estUsd(){
 function estText(){const e=estUsd();return e?`<span title="${esc(e.src)}">${t("est",{v:usd(e.v)})} ${fx(e.v)}</span>`:`<span title="${esc(t("est.tip"))}">${t("est.none")}</span>`}
 
 /* ---------- 参考图 ---------- */
-function readFile(f){return new Promise(res=>{const r=new FileReader();r.onload=()=>res({name:f.name,data:r.result});r.readAsDataURL(f)})}
-async function addFiles(files){let n=0;for(const f of files){if(!/^image\/(png|jpeg|webp)$/.test(f.type))continue;if(st.refs.length>=16){toast(t("toast.maxRefs"));break}
-  st.refs.push(await readFile(f));n++} if(n)drawRefs()}
-async function addRefFromUrl(url,name){const b=await fetch(url).then(r=>r.blob());await addFiles([new File([b],name||"ref.png",{type:b.type})]);toast(t("toast.refAdded"))}
+function readFile(f){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve({name:f.name,data:r.result});r.onerror=()=>reject(r.error);r.readAsDataURL(f)})}
+const MAX_REFS=16;
+function appendRef(ref){
+  if(st.refs.length>=MAX_REFS)return false;
+  st.refs.push(ref);drawRefs();return true;
+}
+async function addFiles(files){
+  let added=0;
+  // A file input is cleared immediately after selection, so snapshot its live FileList.
+  for(const f of Array.from(files)){
+    if(!/^image\/(png|jpeg|webp)$/.test(f.type))continue;
+    try{
+      if(st.refs.length>=MAX_REFS||!appendRef(await readFile(f))){toast(t("toast.maxRefs"));break}
+    }catch{toast(t("err.request"));continue}
+    added++;
+  }
+  return added;
+}
+async function addRefFromUrl(url,name){const r=await fetch(url);if(!r.ok){toast(t("err.request"));return}const b=await r.blob();if(await addFiles([new File([b],name||"ref.png",{type:b.type})]))toast(t("toast.refAdded"))}
 function drawRefs(){
-  $("#refs").innerHTML=st.refs.map((r,i)=>`<div class="ref"><img src="${r.data}"><button data-i="${i}">×</button></div>`).join("")+
+  $("#refs").innerHTML=st.refs.map((r,i)=>`<div class="ref" title="${esc(r.libraryLabel||r.name)}"><img src="${r.data}" alt="${esc(r.libraryLabel||r.name)}"><span class="ref-order">${i+1}</span><button data-i="${i}">×</button></div>`).join("")+
     (st.mask?`<div class="ref mask" title="${esc(t("title.mask"))}"><img src="${st.mask.data}"><button data-m="1">×</button></div>`:"");
   $("#est").innerHTML=estText();
 }
@@ -615,6 +679,7 @@ async function go(){
 }
 $("#go").onclick=go;
 document.addEventListener("keydown",e=>{
+  if($("#referencePicker").open)return;
   if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)&&!$("#settings").classList.contains("open")){e.preventDefault();go()}
   if(e.key==="Escape"){closeLb();closeSettings();closePops()}
   if($("#lb").classList.contains("open")&&(e.key==="ArrowLeft"||e.key==="ArrowRight"))stepLb(e.key==="ArrowLeft"?-1:1);
@@ -951,7 +1016,7 @@ $("#testBtn").onclick=async()=>{
 };
 
 /* ---------- 启动 ---------- */
-(async()=>{
+const studioReady = (async()=>{
   applyI18n();
   await detectMode();
   applyMode();
@@ -961,5 +1026,7 @@ $("#testBtn").onclick=async()=>{
   if(MODE==="browser"&&!S.api_key_masked){openSettings("api");toast(t("toast.needKey"))}
 })();
 </script>
+<script src="reference-picker.js"></script>
+<script src="reference-setup.js"></script>
 </body>
 </html>
