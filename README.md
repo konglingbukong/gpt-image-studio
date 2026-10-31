@@ -25,6 +25,24 @@
 
 ### Local outfit and pose libraries
 
+Open **Outfits & poses** below the prompt box in the local studio. For first-time setup, see [Download the libraries](#download-the-libraries).
+
+**1. Pick an outfit.** Filter for short summer dresses and select `SUM-0039` to see the coral dress, woven bag and sandals together. Click **Add as reference**.
+
+![Summer dress grid with the coral outfit SUM-0039 selected and its accessories visible in the preview](docs/library-outfits-en.webp)
+
+**2. Try a different camera angle.** These three previews show the same raised-leg pose, `P024`, from the front, from the side and from above. Add the high-angle view as image 2.
+
+![Three captures of pose P024 with the front, side and high-angle buttons selected in turn](docs/library-pose-angles-en.webp)
+
+**3. Tell the AI how to use each image.** The composer numbers references as you add them. Here image 1 supplies the outfit and image 2 supplies the pose and camera angle for a 9:16 street-style photo.
+
+![Two numbered references in the composer with a prompt combining the coral dress and the high-angle pose](docs/library-composer-en.webp)
+
+*The outfit and pose artwork in these screenshots is credited to [@giaaibusi](https://x.com/giaaibusi).*
+
+#### Download the libraries
+
 **New in v0.5.0.** The first time you open the **local** workbench, a banner offers **1,407 outfits** and **288 pose groups with 1,439 angle images**. After the download choice has been visible for 20 seconds, the studio starts fetching the missing libraries from their upstream GitHub repositories. Both together take about **820 MB** to download. Allow **1.7 GB** of free space during setup.
 
 - Choose **Skip download** to save that choice, or **Stop download** while it runs. To install later, open **Outfits & poses → Download now**. **Retry** keeps completed libraries and fetches the unfinished library again.
