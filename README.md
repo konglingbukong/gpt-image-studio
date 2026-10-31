@@ -15,10 +15,10 @@
 - **Generate from any AI agent.** Ask Claude Code, Codex or another agent that can run commands for "a 2K 16:9 image of …". It calls the official API, saves the file locally and tells you what the image cost.
 - **Live web gallery.** While an agent is generating, a "generating…" card with a timer appears on the page, and the result replaces it when it's ready. You can also generate directly from the page.
 - **All the parameters.** gpt-image-2.5 sunburst / flare; 1K / 2K / 4K at any aspect ratio, up to 3840×2160; quality from `low` to **`xhigh` / `max`**; up to 16 reference images; mask inpainting.
-- **Cost tracking.** The cost of every image is calculated from the token usage OpenAI actually returns. Spending is totalled for today, this month and overall. Calibrate your balance once and the remaining amount is tracked for you (OpenAI has no balance API, so this is the most accurate method available).
+- **Cost tracking.** The studio calculates each image's cost from its token usage and shows daily, monthly and lifetime totals. It subtracts subsequent spending from the last balance you synced or entered.
 - **Gallery tools.** Favorites, filters by status (completed / generating / failed), search, one-click reuse of settings, and "use as reference" to keep iterating on a result. Deleted items go to a `.trash` folder instead of being erased.
 - **Use it anywhere.** The same page can be hosted on GitHub Pages. On a computer that runs the local service it connects to that service automatically; anywhere else it runs in *browser mode*, where your key and images stay in that browser.
-- **Automatic balance (official API).** A small browser extension reads your real balance from OpenAI's billing page and syncs it — see [extension/README.md](extension/README.md).
+- **Sync your OpenAI balance.** Tell your AI **“sync my balance”** (or **“同步余额”**). For periodic updates, you can also use the [optional browser extension](extension/README.md).
 - **5 languages.** English, 中文, 日本語, 한국어 and Русский. The language follows your browser and can be switched in the page.
 - **Relay services supported.** Works with OpenAI-compatible relays (one-api, new-api …), including image-URL responses, per-image pricing and reading the relay's real balance. See [Relay services](#relay-services-openai-compatible-proxies).
 - **Zero dependencies.** You only need Python 3.9 or later. Nothing to `pip install`.
@@ -56,7 +56,7 @@ Open **https://konglingbukong.github.io/gpt-image-studio/** and enter your key i
 
 Pick whichever of these your agent supports:
 
-**① MCP (supported by most agents).** Register `scripts/mcp_server.py` as an MCP server. Your agent gets three tools: `generate_image`, `check_connection` and `get_spending`. Replace `<path>` with the folder you cloned:
+**① MCP (supported by most agents).** Register `scripts/mcp_server.py` to enable `generate_image`, `check_connection`, `get_spending` and `sync_balance`. Replace `<path>` with the folder you cloned:
 
 - **Claude Code:** `claude mcp add gpt-image -- python <path>/scripts/mcp_server.py`
 - **Codex** (`~/.codex/config.toml`):
@@ -69,6 +69,10 @@ Pick whichever of these your agent supports:
   ```json
   { "mcpServers": { "gpt-image": { "command": "python", "args": ["<path>/scripts/mcp_server.py"] } } }
   ```
+
+**Try it.** Set your OpenAI project key in the studio and sign in to the API dashboard in a browser your AI can access, such as Edge or Chrome. Tell the AI **“sync my balance”**. It reads **API credit balance** for the selected organization, verifies the organization against your key and reports the USD amount and time. If your browser asks for permission or sign-in, complete that prompt in the browser. [Open the official billing page](https://platform.openai.com/settings/organization/billing/overview).
+
+The sync runs when you ask. It works with the local workbench closed and appears the next time you open it. Between syncs, the workbench subtracts spending from the last recorded amount. Use an MCP client with access to your signed-in browser for this workflow. After updating an existing installation, reconnect the MCP server once to load the new tool.
 
 **② Skill folder.** Agents that support the `SKILL.md` format (Codex, WorkBuddy …) can use this folder as a skill: drop it into their skills directory.
 

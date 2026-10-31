@@ -1,5 +1,7 @@
 # 个人配置和本机规矩（含 key / 余额 / 本机路径），绝不上传
 config.json
+.config.json.lock
+.config.json.*.tmp
 reference-libraries.local.json
 rules.local.md
 .env

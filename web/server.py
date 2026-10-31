@@ -22,7 +22,7 @@ from reference_library import KINDS, MIME, ReferenceLibrary
 from reference_setup import ReferenceSetup
 
 PORT = int(os.environ.get("GPT_IMAGE_PORT") or 8765)  # override to run a second instance
-VERSION = "0.5.0"
+VERSION = "0.6.0"
 CFG = {}
 OUT_DIR = Path()
 
@@ -287,7 +287,7 @@ def balance():
         if rb:
             return {"set": True, "source": "relay", "amount": rb["total"], "spent": rb["used"], "remaining": rb["remaining"],
                     "at": None, "error": None, "low": rb["remaining"] < float(CFG.get("low_balance_warn", 5))}
-    b = CFG.get("balance") or {}
+    b = gen.read_config().get("balance") or {}
     if b.get("amount") is None:
         return {"set": False}
     ts = b.get("at") or time.time()
@@ -301,7 +301,8 @@ def balance():
         spent = local_spend_since(ts)
     remaining = float(b["amount"]) - spent
     return {
-        "set": True, "amount": float(b["amount"]), "at": ts, "spent": round(spent, 4), "synced": b.get("source") == "extension",
+        "set": True, "amount": float(b["amount"]), "at": ts, "spent": round(spent, 4),
+        "synced": b.get("source") in ("extension", "mcp_browser") and not b.get("topups"),
         "remaining": round(remaining, 4), "source": source, "error": err,
         "low": remaining < float(CFG.get("low_balance_warn", 5)),
     }
@@ -315,9 +316,8 @@ def balance_sync(body):
         return {"error": "bad amount"}
     if not -1000 <= amount <= 1_000_000:
         return {"error": "amount out of range"}
-    cfg = gen.load_config()
-    cfg["balance"] = {"amount": round(amount, 4), "at": time.time(), "source": str(body.get("source") or "extension")[:20]}
-    gen.save_config(cfg)
+    with gen.edit_config() as cfg:
+        cfg["balance"] = {"amount": round(amount, 4), "at": time.time(), "source": str(body.get("source") or "extension")[:20]}
     reload_config()
     _cost_cache["key"] = None
     return {"ok": True, "balance": balance()}
@@ -341,7 +341,7 @@ def settings_view():
         "api_key_masked": mask_key(key),
         "key_source": gen.tr("src_env") if os.environ.get("OPENAI_API_KEY") else (gen.tr("src_cfg") if CFG.get("api_key") else (CFG.get("key_file") or "")),
         "admin_key_masked": mask_key(CFG.get("admin_key", "")),
-        "balance": CFG.get("balance"),
+        "balance": gen.read_config().get("balance"),
         "rates": {**gen.DEFAULT_RATES, "per_image": 0, **(CFG.get("rates") or {})},
         "out_dir": str(OUT_DIR), "version": VERSION,
         "skill_dir": str(HERE.parent), "config_file": str(gen.CONFIG_FILE),
@@ -366,34 +366,33 @@ def write_key_file(path, key):
 
 
 def save_settings(body):
-    cfg = gen.load_config()
-    for k in SETTABLE:
-        if k in body:
-            cfg[k] = body[k]
-    if body.get("api_key"):
-        if cfg.get("key_file") and not cfg.get("api_key"):
-            write_key_file(cfg["key_file"], body["api_key"].strip())
-        else:
-            cfg["api_key"] = body["api_key"].strip()
-    if "admin_key" in body:
-        if body["admin_key"]:
-            cfg["admin_key"] = body["admin_key"].strip()
-        else:
-            cfg.pop("admin_key", None)
-    if "balance_amount" in body:
-        if body["balance_amount"] in (None, ""):
-            cfg.pop("balance", None)
-        else:
-            cfg["balance"] = {"amount": float(body["balance_amount"]), "at": time.time()}
-    if body.get("topup_amount"):
-        # a top-up just raises the calibrated amount; the calibration time (and spending since) stays
-        b = cfg.get("balance")
-        if not b or b.get("amount") is None:
-            raise ValueError(gen.tr("topup_needs_cal"))
-        amt = float(body["topup_amount"])
-        b["amount"] = round(float(b["amount"]) + amt, 4)
-        b.setdefault("topups", []).append({"amount": amt, "at": time.time()})
-    gen.save_config(cfg)
+    with gen.edit_config() as cfg:
+        for k in SETTABLE:
+            if k in body:
+                cfg[k] = body[k]
+        if body.get("api_key"):
+            if cfg.get("key_file") and not cfg.get("api_key"):
+                write_key_file(cfg["key_file"], body["api_key"].strip())
+            else:
+                cfg["api_key"] = body["api_key"].strip()
+        if "admin_key" in body:
+            if body["admin_key"]:
+                cfg["admin_key"] = body["admin_key"].strip()
+            else:
+                cfg.pop("admin_key", None)
+        if "balance_amount" in body:
+            if body["balance_amount"] in (None, ""):
+                cfg.pop("balance", None)
+            else:
+                cfg["balance"] = {"amount": float(body["balance_amount"]), "at": time.time()}
+        if body.get("topup_amount"):
+            # a top-up just raises the calibrated amount; the calibration time (and spending since) stays
+            b = cfg.get("balance")
+            if not b or b.get("amount") is None:
+                raise ValueError(gen.tr("topup_needs_cal"))
+            amt = float(body["topup_amount"])
+            b["amount"] = round(float(b["amount"]) + amt, 4)
+            b.setdefault("topups", []).append({"amount": amt, "at": time.time()})
     reload_config()
     _cost_cache["key"] = None
     _relay_cache["at"] = 0

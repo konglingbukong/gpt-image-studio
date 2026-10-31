@@ -4,7 +4,7 @@ This folder is an image generation tool: the user's own OpenAI API key + the off
 
 ## Three ways to use it — pick what your environment supports
 
-1. **MCP tools** (if the user registered `scripts/mcp_server.py` as an MCP server): call `generate_image`, `check_connection`, `get_spending`.
+1. **MCP tools** (if the user registered `scripts/mcp_server.py` as an MCP server): call `generate_image`, `check_connection`, `get_spending` or `sync_balance`. On **“同步余额”** or **“sync my balance”**, call `sync_balance({})`, use your authorized signed-in browser to follow the returned steps, and call the tool again with the observation. Report the amount and observation time only after it returns `synced`. Use `get_spending` for a local estimate.
 2. **Command line** (anything that can run a shell command): write the prompt to a UTF-8 text file, then run
    ```
    python <this folder>/scripts/gen.py --prompt-file <file> --size "2K 16:9" --quality high --name <short-name>

@@ -15,10 +15,10 @@
 - **在 AI 智能体里直接出图**：对 Claude Code、Codex 或别的能运行命令的智能体说「出一张 2K 16:9 的……」，它会调用官方接口出图、存到本地，并告诉你这张花了多少钱。
 - **网页图库实时同步**：智能体出图时，网页上会出现「正在出图」的卡片和计时，出完自动换成结果。你也可以直接在网页上出图。
 - **参数齐全**：gpt-image-2.5 的 sunburst / flare；1K / 2K / 4K 任意比例（最大 3840×2160）；质量从 low 到 **xhigh / max**；最多 16 张参考图；遮罩局部重绘。
-- **算钱**：每张图按 OpenAI 实际返回的 token 用量计算花费，统计今天、本月和累计的花费；校准一次余额后，会自动显示还剩多少（OpenAI 没有查余额的接口，这是能做到最准的办法）。
+- **花费统计。** 每张图按 OpenAI 返回的 token 用量计费，工作台汇总今天、本月和累计花费，并从上次同步或手动填写的余额中扣除后续用量。
 - **图库**：收藏、按状态筛选（已完成 / 生成中 / 失败）、搜索、一键复用参数、把结果当参考图继续改。删除的图会移到 `.trash` 文件夹，不会直接抹掉。
 - **哪里都能打开**：同一个网页可以放在 GitHub Pages 上。在运行着本机服务的电脑上打开，会自动连上本机服务；在别的设备上打开就是「浏览器模式」，key 和图都只存在那个浏览器里。
-- **余额自动同步（官方 API）**：装一个小浏览器扩展，自动从 OpenAI 后台账单页读取真实余额同步过来，见 [extension/README.md](extension/README.md#中文)。
+- **对 AI 说「同步余额」。** AI 会从 OpenAI 官网读取当前组织的 API 余额，写回本地工作台。想定时更新，也可以使用[可选浏览器扩展](extension/README.md#中文)。
 - **五种语言**：English、中文、日本語、한국어、Русский，默认跟随浏览器语言，也可以在网页上切换。
 - **支持中转站**：兼容 one-api、new-api 等 OpenAI 中转，支持返回图片链接、按张计费、直接读取中转站的真实余额，见下面的[中转站](#中转站兼容-openai-的中转服务)一节。
 - **零依赖**：只需要 Python 3.9 以上，不用 `pip install` 任何东西。
@@ -66,7 +66,7 @@ key 也可以用环境变量 `OPENAI_API_KEY` 提供，或者写进 `config.json
 
 按你的智能体支持哪种，选一种接法：
 
-**① MCP（大多数智能体都支持）**：把 `scripts/mcp_server.py` 注册成 MCP 服务，智能体里就会多出 `generate_image`、`check_connection`、`get_spending` 三个工具。下面的 `<路径>` 换成你 clone 下来的文件夹：
+**① 通过 MCP 接入。** 把 `scripts/mcp_server.py` 注册为 MCP 服务，即可使用 `generate_image`、`check_connection`、`get_spending` 和 `sync_balance`。把下面的 `<路径>` 换成你克隆的文件夹。
 
 - **Claude Code**：`claude mcp add gpt-image -- python <路径>/scripts/mcp_server.py`
 - **Codex**（`~/.codex/config.toml`）：
@@ -79,6 +79,14 @@ key 也可以用环境变量 `OPENAI_API_KEY` 提供，或者写进 `config.json
   ```json
   { "mcpServers": { "gpt-image": { "command": "python", "args": ["<路径>/scripts/mcp_server.py"] } } }
   ```
+
+#### 对 AI 说「同步余额」
+
+1. 在工作台里设置自己的 OpenAI 项目 API key，然后在 AI 可以访问的浏览器里登录 OpenAI 并选好组织。Edge、Chrome 都可以，取决于你的 AI 客户端能连接哪个浏览器。[打开官方账单页](https://platform.openai.com/settings/organization/billing/overview)
+2. 直接对 AI 说 **「同步余额」**。如果浏览器提示登录或允许连接，在浏览器里完成即可。AI 会读取 **API credit balance**，核对组织，然后告诉你美元余额和读取时间。整个过程无需手抄金额或安装本项目的扩展。
+3. 打开本地工作台，顶部就能看到余额。工作台关着也可以同步。两次同步之间，显示值会随工作台记录的花费更新。
+
+这个功能需要 AI 客户端能访问已登录的浏览器。已有用户更新代码后，重新连接一次 MCP 服务即可加载新工具。
 
 **② 技能文件夹**：支持 `SKILL.md` 格式的智能体（Codex、WorkBuddy 等），把整个文件夹放进它们的技能目录就行。
 

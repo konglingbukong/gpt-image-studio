@@ -64,6 +64,11 @@ Fields are only ever **added**, never removed or renamed.
 | `generate_image` | `prompt` (required), `size`, `quality`, `model`, `n`, `reference_images[]`, `mask`, `name`, `moderation` | text: saved paths, cost, today / month totals; `isError: true` on failure |
 | `check_connection` | none | text |
 | `get_spending` | none | text: today / month / total spending and the estimated balance |
+| `sync_balance` | `{}` to start, then `amount_usd`, `billing_url`, `organization_id`, `observed_at` together | JSON in a text content block. First returns `needs_browser` with the official URLs. A successful write returns `synced`, the amount and the observation time in UTC. |
+
+For “sync my balance” or “同步余额”, the **agent** handles both calls. Use its authorized browser connection to read the labeled USD balance on a fresh organization billing overview and the Organization ID from General settings for the same organization. Take `observed_at` from the clock at the time of the reading (Unix seconds). Ask the user to sign in or allow the connection if the browser requests it. Only report a sync after the second call succeeds.
+
+The local MCP process checks the organization with a read-only request to the official models endpoint using the studio's project key (Models read permission). A legacy key requires the response to identify the same default organization. The amount comes from the billing page. Missing browser access, an unverifiable organization or an expired observation leaves the recorded balance in place. The workbench and MCP must share the same local configuration, including the same `GPT_IMAGE_CONFIG` if you override it. [OpenAI authentication and organization headers](https://developers.openai.com/api/reference/overview#authentication).
 
 ### D. Local HTTP API (while the web service runs)
 

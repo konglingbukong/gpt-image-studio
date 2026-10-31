@@ -1,6 +1,6 @@
 ---
 name: gpt-image
-description: Generate images with the official OpenAI gpt-image-2.5 API using the user's own API key — text-to-image, reference images, mask inpainting; 1K/2K/4K at any aspect ratio, quality low…max; saves locally and reports the cost of every run. Use when the user asks to generate / draw / create an image, poster, cover, portrait, character sheet or scene, or gives specs like 2K, 4K, 16:9, high, max. 用用户自己的 OpenAI key 出图（出图 / 生图 / 画一张 / 海报 / 封面 / 定妆照 / 四视图 / 场景图）。
+description: Generate images with the official OpenAI gpt-image-2.5 API using the user's own API key — text-to-image, reference images, mask inpainting; 1K/2K/4K at any aspect ratio, quality low…max; saves locally and reports the cost of every run. Use when the user asks to generate / draw / create an image, poster, cover, portrait, character sheet or scene, or gives specs like 2K, 4K, 16:9, high, max. 用用户自己的 OpenAI key 出图（出图 / 生图 / 画一张 / 海报 / 封面 / 定妆照 / 四视图 / 场景图）。 Also use for “sync my balance” / “同步余额” with the studio MCP.
 ---
 
 # gpt-image: generate images with the official API
@@ -53,7 +53,7 @@ Show the user the image afterwards, using whatever your environment offers for s
 
 The same page can be hosted on GitHub Pages: on a computer running the local service it connects to it automatically; elsewhere it runs in browser mode (key and images stay in that browser).
 
-**Balance:** OpenAI has no balance API. The balance is estimated as the calibrated amount (`config.balance`) minus spending since then; with an `admin_key`, spending comes from the `/organization/costs` billing API. When the user asks how much is left, read `balance` from `http://127.0.0.1:8765/api/status` if the page is running, otherwise compute it the same way.
+**Balance.** When the user says **“同步余额”** or **“sync my balance”**, call the MCP tool `sync_balance({})`. Follow its instructions using the user's signed-in browser and submit the fresh official observation. Report the amount and time after the tool returns `synced`. A sign-in or browser permission prompt is for the user to complete. For an estimate between syncs, use `get_spending` or read `balance` from the local workbench's `/api/status`. The workbench subtracts subsequent spending from the recorded balance, using the organization Costs API when an admin key is configured.
 
 ## Troubleshooting
 

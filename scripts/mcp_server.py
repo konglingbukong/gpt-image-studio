@@ -8,6 +8,7 @@ Tools:
   generate_image   text-to-image / references / mask; returns saved paths and cost
   check_connection test key and network (free)
   get_spending     spending today / this month / total, plus the estimated balance
+  sync_balance     sync the official API credit balance using the agent's signed-in browser
 
 Generation is delegated to gen.py in this folder (same logic as the CLI and the web UI),
 so the web workbench still shows progress live.
@@ -24,8 +25,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import gen  # noqa: E402
+import official_balance  # noqa: E402
 
-SERVER_INFO = {"name": "gpt-image", "version": "0.5.0"}
+SERVER_INFO = {"name": "gpt-image", "version": "0.6.0"}
 SUPPORTED = ["2025-06-18", "2025-03-26", "2024-11-05"]
 
 TOOLS = [
@@ -61,6 +63,13 @@ TOOLS = [
         "name": "get_spending",
         "description": "Get spending today / this month / total and the estimated remaining balance.",
         "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "sync_balance",
+        "description": ("When the user says '同步余额' or 'sync my balance', start with {}. "
+                        "Follow the returned browser instructions, then call again with all four fields. "
+                        "Report success only when the result says synced."),
+        "inputSchema": {"type": "object", "properties": official_balance.FIELDS, "additionalProperties": False},
     },
 ]
 
@@ -162,6 +171,11 @@ def handle(msg):
             text, err = tool_check()
         elif name == "get_spending":
             text, err = tool_spending()
+        elif name == "sync_balance":
+            try:
+                text, err = json.dumps(official_balance.sync(a), ensure_ascii=False), False
+            except (ValueError, OSError) as exc:
+                text, err = str(exc), True
         else:
             raise LookupError(gen.tr("no_tool", name=name))
         return {"content": [{"type": "text", "text": text}], "isError": err}

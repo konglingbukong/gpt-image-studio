@@ -15,7 +15,10 @@ import re
 import math
 import mimetypes
 import os
+import stat
 import sys
+import tempfile
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -99,18 +102,88 @@ def spend_summary(out_dir):
     return {k: (round(v, 4) if isinstance(v, float) else v) for k, v in tot.items()}
 
 
+def _replace_config(tmp, path):
+    # Windows editors and antivirus scanners may briefly hold the destination.
+    deadline = time.monotonic() + 2
+    while True:
+        try:
+            return os.replace(tmp, path)
+        except PermissionError as exc:
+            if getattr(exc, "winerror", None) not in (5, 32, 33) or time.monotonic() >= deadline:
+                raise
+            time.sleep(0.02)
+
+
+def _read_config():
+    try:
+        with CONFIG_FILE.open(encoding="utf-8-sig") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+
+_config_mutex = threading.Lock()
+
+
+@contextlib.contextmanager
+def _config_lock(write):
+    path = CONFIG_FILE.resolve()
+    with _config_mutex:
+        try:
+            handle = path.with_name(f".{path.name}.lock").open("a+b" if write else "rb")
+        except FileNotFoundError:
+            if write:
+                raise
+            # No writer yet. Read-only installations also work without a lock file.
+            yield
+            return
+        with handle:
+            if os.name == "nt":
+                import msvcrt
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK if write else msvcrt.LK_RLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(handle, fcntl.LOCK_EX)
+            yield
+
+
+def read_config():
+    if os.name == "nt":
+        # Windows cannot replace the destination while a reader has it open.
+        with _config_lock(write=False):
+            return _read_config()
+    return _read_config()
+
+
 def load_config():
     global API
-    cfg = {}
-    if CONFIG_FILE.exists():
-        cfg = json.loads(CONFIG_FILE.read_text(encoding="utf-8-sig"))
+    cfg = read_config()
     API = (cfg.get("api_url") or "https://api.openai.com/v1").rstrip("/")
     set_lang(cfg)
     return cfg
 
 
 def save_config(cfg):
-    CONFIG_FILE.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+    path = CONFIG_FILE.resolve()
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+        if path.exists():
+            os.chmod(tmp, stat.S_IMODE(path.stat().st_mode))
+        _replace_config(tmp, path)
+    finally:
+        Path(tmp).unlink(missing_ok=True)
+
+
+@contextlib.contextmanager
+def edit_config():
+    """Serialize read/modify/write across the MCP process and web settings requests."""
+    with _config_lock(write=True):
+        cfg = _read_config()
+        yield cfg
+        save_config(cfg)
 
 
 def load_key(cfg):

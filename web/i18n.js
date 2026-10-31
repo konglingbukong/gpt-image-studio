@@ -165,7 +165,7 @@ en: {
   "time.minAgo": "{n} min ago",
   "time.hourAgo": "{n} h ago",
   "time.dayAgo": "{n} days ago",
-  "bal.extNote": "<b>Automatic balance:</b> install the small browser extension in the repo's <code>extension</code> folder. Whenever you open OpenAI's billing page (and every few hours in the background) it reads your real balance and syncs it here — no calibrating or top-up records needed. Add an admin key below for exact spending between syncs.",
+  "bal.extNote": "<b>Sync your balance.</b> Tell your MCP-connected AI “sync my balance” using a browser signed in to OpenAI. For periodic updates, you can also use the browser extension in <code>extension</code>.",
 },
 
 zh: {
@@ -321,7 +321,7 @@ zh: {
   "time.minAgo": "{n} 分钟前",
   "time.hourAgo": "{n} 小时前",
   "time.dayAgo": "{n} 天前",
-  "bal.extNote": "<b>自动余额：</b>装上仓库 <code>extension</code> 文件夹里的小扩展，每次打开 OpenAI 后台账单页（以及每隔几小时在后台）会自动读取真实余额同步过来，不用再校准、记充值。再填上下面的管理员 Key，两次同步之间的花费也是精确的。",
+  "bal.extNote": "<b>同步余额。</b>在 AI 能访问的浏览器中登录 OpenAI 后，直接对已连接工作台 MCP 的 AI 说「同步余额」。需要定时更新时，也可以使用仓库 <code>extension</code> 里的浏览器扩展。",
 },
 
 ja: {
@@ -477,7 +477,7 @@ ja: {
   "time.minAgo": "{n} 分前",
   "time.hourAgo": "{n} 時間前",
   "time.dayAgo": "{n} 日前",
-  "bal.extNote": "<b>残高の自動取得：</b>リポジトリの <code>extension</code> フォルダにある小さな拡張機能を入れると、OpenAI の請求ページを開いたとき（と数時間ごとにバックグラウンドで）実際の残高を読み取ってここに同期します。補正やチャージの記録は不要です。下に管理者キーを入れると、同期の合間の支出も正確になります。",
+  "bal.extNote": "<b>残高を同期。</b> AI がアクセスできるブラウザで OpenAI にログインし、MCP に接続した AI に「残高を同期して」と頼んでください。定期更新には <code>extension</code> のブラウザ拡張機能も使えます。",
 },
 
 ko: {
@@ -633,7 +633,7 @@ ko: {
   "time.minAgo": "{n}분 전",
   "time.hourAgo": "{n}시간 전",
   "time.dayAgo": "{n}일 전",
-  "bal.extNote": "<b>잔액 자동 동기화:</b> 저장소의 <code>extension</code> 폴더에 있는 작은 확장 프로그램을 설치하면, OpenAI 청구 페이지를 열 때(그리고 몇 시간마다 백그라운드에서) 실제 잔액을 읽어 여기로 동기화합니다. 보정이나 충전 기록이 필요 없습니다. 아래에 관리자 키를 넣으면 동기화 사이의 지출도 정확해집니다.",
+  "bal.extNote": "<b>잔액 동기화.</b> AI가 접근할 수 있는 브라우저에서 OpenAI에 로그인하고 MCP에 연결된 AI에게 “잔액 동기화해 줘”라고 말하세요. 주기적으로 갱신하려면 <code>extension</code> 폴더의 확장 프로그램을 사용할 수 있습니다.",
 },
 
 ru: {
@@ -792,7 +792,7 @@ ru: {
   "time.minAgo": "{n} мин назад",
   "time.hourAgo": "{n} ч назад",
   "time.dayAgo": "{n} дн. назад",
-  "bal.extNote": "<b>Автоматический баланс:</b> установите небольшое расширение из папки <code>extension</code> репозитория. Когда вы открываете страницу оплаты OpenAI (и раз в несколько часов в фоне), оно считывает реальный баланс и передаёт его сюда — задавать баланс и записывать пополнения не нужно. Ключ администратора ниже даст точные расходы между синхронизациями.",
+  "bal.extNote": "<b>Синхронизация баланса.</b> Войдите в OpenAI в браузере, к которому у агента есть доступ, и скажите агенту с подключённым MCP «Синхронизируй баланс». Для периодического обновления можно использовать расширение из папки <code>extension</code>.",
 },
 };
 

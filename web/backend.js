@@ -4,7 +4,7 @@
  * 设置（含 API key）存 localStorage，出图记录和图片存 IndexedDB，都只在这个浏览器里。
  */
 const BB = (() => {
-  const VERSION = "0.5.0";
+  const VERSION = "0.6.0";
   const DEF = {
     api_url: "https://api.openai.com/v1", model: "gpt-image-2.5-sunburst", size: "2K 16:9", quality: "high",
     format: "png", moderation: "auto", low_balance_warn: 5, timeout: 900,
