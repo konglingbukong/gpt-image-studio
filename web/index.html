@@ -737,7 +737,14 @@ function drawLb(){
 }
 $("#lbThumbs").onclick=e=>{const x=e.target.closest("img");if(x){LB.f=+x.dataset.j;drawLb()}};
 $("#lbX").onclick=closeLb;
-$("#lb").onclick=e=>{if(e.target.id==="lb"||e.target.classList.contains("pic")||(e.target.id==="lbStage"&&Z.s===1&&!Z.moved))closeLb()};
+$("#lb").onclick=e=>{
+  if(e.target.id==="lb"||e.target.classList.contains("pic"))return closeLb();
+  const stage=$("#lbStage");
+  if(!stage.contains(e.target)||Z.moved)return;
+  const box=stage.getBoundingClientRect(),im=$("#lbImg");
+  const x=e.clientX-box.left-box.width/2-Z.x,y=e.clientY-box.top-box.height/2-Z.y;
+  if(Math.abs(x)>im.clientWidth*Z.s/2||Math.abs(y)>im.clientHeight*Z.s/2)closeLb();
+};
 
 /* 大图缩放：滚轮以鼠标为中心缩放，放大后拖动平移，双击在适应窗口和原图大小之间切换。
  * 放大后改用 canvas 只画看得见的那一块：CSS 放大整张图时，浏览器拖动中会分块重绘，露出马赛克条 */
@@ -796,7 +803,10 @@ $("#lbStage").addEventListener("pointerdown",e=>{
   Z.moved=false;if(Z.s===1||e.button!==0)return;
   e.preventDefault();   // 不然真实鼠标拖动会顺带选中旁边的文字，一闪一闪
   const sx=e.clientX-Z.x,sy=e.clientY-Z.y,st=$("#lbStage");st.classList.add("dragging");st.setPointerCapture(e.pointerId);
-  const mv=ev=>{Z.x=ev.clientX-sx;Z.y=ev.clientY-sy;Z.moved=true;zoomApply()};
+  const mv=ev=>{
+    if(!Z.moved&&Math.hypot(ev.clientX-e.clientX,ev.clientY-e.clientY)<4)return;
+    Z.moved=true;Z.x=ev.clientX-sx;Z.y=ev.clientY-sy;zoomApply();
+  };
   const up=()=>{st.classList.remove("dragging");st.removeEventListener("pointermove",mv);st.removeEventListener("pointerup",up);st.removeEventListener("pointercancel",up)};
   st.addEventListener("pointermove",mv);st.addEventListener("pointerup",up);st.addEventListener("pointercancel",up);
 });
