@@ -276,8 +276,8 @@ body.mode-local .browser-only{display:none!important}
     <button class="fbtn" id="favF" data-i18n-title="title.favOnly"><svg class="ic"><use href="#i-star"/></svg></button>
     <div class="dd"><button class="ddbtn" id="stBtn"><span id="stLbl"></span><svg class="ic" style="width:14px;height:14px"><use href="#i-down"/></svg></button>
       <div class="ddmenu" id="stMenu"></div></div>
-    <div class="search"><svg class="ic" style="color:var(--faint)"><use href="#i-search"/></svg>
-      <input id="q" data-i18n-ph="ph.search"></div>
+    <form class="search" role="search" autocomplete="off"><svg class="ic" style="color:var(--faint)"><use href="#i-search"/></svg>
+      <input id="q" type="search" name="gallery-search" autocomplete="off" data-1p-ignore data-lpignore="true" data-i18n-ph="ph.search"></form>
     <div class="stats" id="stats"></div>
   </div>
   <div class="gallery" id="gallery"></div>
@@ -298,7 +298,7 @@ body.mode-local .browser-only{display:none!important}
         <h4 style="margin-top:12px" data-i18n="size.custom"></h4><input class="inp" id="customSize" data-i18n-ph="ph.custom">
         <div class="hint" id="sizeHint" style="margin-top:8px"></div>
       </div></div>
-    <div class="ctl"><button class="cbtn" data-pop="popQ"><svg class="ic"><use href="#i-spark"/></svg><span id="lblQ"></span></button>
+    <div class="ctl"><button class="cbtn" data-pop="popQ"><span data-i18n="lb.quality"></span><span id="lblQ"></span></button>
       <div class="pop" id="popQ"></div></div>
     <div class="ctl"><button class="cbtn" data-pop="popN"><span id="lblN"></span></button>
       <div class="pop" id="popN" style="min-width:150px"></div></div>
@@ -329,7 +329,7 @@ body.mode-local .browser-only{display:none!important}
 </div>
 
 <!-- 设置 -->
-<div class="modal" id="settings">
+<div class="modal" id="settings" inert>
   <div class="dlg">
     <div class="dlg-h"><svg class="ic" style="color:var(--accent)"><use href="#i-gear"/></svg><span data-i18n="set.title"></span><span class="ver" id="ver"></span><button class="x" id="setX">×</button></div>
     <div class="dlg-b">
@@ -687,6 +687,7 @@ function drawGallery(flashTime){
   $("#gallery").innerHTML=runHtml+cardHtml;
 }
 $("#q").addEventListener("input",()=>drawGallery());
+$("#q").form.addEventListener("submit",e=>e.preventDefault());
 $("#gallery").onclick=async e=>{
   const card=e.target.closest(".card[data-i]");if(!card)return;const m=HIST[+card.dataset.i];
   const act=e.target.closest("[data-act]")?.dataset.act;
@@ -843,9 +844,9 @@ addEventListener("scroll",()=>$("#top").classList.toggle("scrolled",scrollY>4));
 
 /* ---------- 设置 ---------- */
 async function openSettings(sec){
-  S=await api("/api/settings");fillSettings();showSec(sec||"api");$("#saveMsg").textContent="";$("#testMsg").textContent="";$("#settings").classList.add("open");
+  S=await api("/api/settings");fillSettings();showSec(sec||"api");$("#saveMsg").textContent="";$("#testMsg").textContent="";$("#settings").inert=false;$("#settings").classList.add("open");
 }
-function closeSettings(){$("#settings").classList.remove("open")}
+function closeSettings(){$("#settings").classList.remove("open");$("#settings").inert=true}
 function showSec(s){$$("#nav button").forEach(b=>b.classList.toggle("on",b.dataset.s===s));$$(".pane section").forEach(x=>x.classList.toggle("on",x.dataset.s===s))}
 $("#nav").onclick=e=>{const b=e.target.closest("button");if(b)showSec(b.dataset.s)};
 $("#openSettings").onclick=()=>openSettings();
