@@ -34,7 +34,7 @@ TOOLS = [
     {
         "name": "generate_image",
         "description": (
-            "Generate an image with OpenAI gpt-image-2.5 using the user's own API key; saves it locally and returns the file paths and cost. "
+            "Generate an image with OpenAI GPT Image using the user's own API key; saves it locally and returns the file paths and cost. "
             "Without a requested spec use 2K 16:9 + high (about $0.06). 4K, xhigh, max or several images cost more — tell the user the rough cost first. "
             "Always tell the user what each run cost."
         ),
@@ -44,7 +44,15 @@ TOOLS = [
                 "prompt": {"type": "string", "description": "prompt (positive description of the image)"},
                 "size": {"type": "string", "description": "e.g. \"2K 16:9\", \"4K 9:16\", \"1K 1:1\", \"2560x1440\" or \"auto\"", "default": "2K 16:9"},
                 "quality": {"type": "string", "enum": ["low", "medium", "high", "xhigh", "max", "auto"], "default": "high"},
-                "model": {"type": "string", "enum": ["gpt-image-2.5-sunburst", "gpt-image-2.5-flare"], "default": "gpt-image-2.5-sunburst"},
+                "model": {
+                    "type": "string",
+                    "enum": [
+                        "gpt-image-2.6-sunburst", "gpt-image-2.6-flare",
+                        "gpt-image-2.5-sunburst", "gpt-image-2.5-flare",
+                        "gpt-image-2", "gpt-image-2-2026-04-21",
+                    ],
+                    "default": "gpt-image-2.6-sunburst",
+                },
                 "n": {"type": "integer", "minimum": 1, "maximum": 8, "default": 1, "description": "number of images"},
                 "reference_images": {"type": "array", "items": {"type": "string"}, "description": "absolute local paths of reference images, up to 16"},
                 "mask": {"type": "string", "description": "absolute path of a mask PNG (transparent = repaint); requires reference images"},

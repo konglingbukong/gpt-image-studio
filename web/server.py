@@ -61,7 +61,7 @@ def generate(body):
         size = gen.parse_size(body.get("size") or CFG.get("size", "2K 16:9"))
         fmt = body.get("format") or CFG.get("format", "png")
         params = {
-            "model": body.get("model") or CFG.get("model", "gpt-image-2.5-sunburst"),
+            "model": body.get("model") or CFG.get("model", "gpt-image-2.6-sunburst"),
             "prompt": prompt,
             "size": size,
             "quality": body.get("quality") or CFG.get("quality", "high"),
@@ -406,7 +406,7 @@ def test_connection(body):
         cfg = {**CFG, **{k: body[k] for k in ("api_url", "proxy") if k in body}}
         key = (body.get("api_key") or "").strip() or gen.load_key(CFG)
         gen.API = (cfg.get("api_url") or "https://api.openai.com/v1").rstrip("/")
-        model = body.get("model") or CFG.get("model", "gpt-image-2.5-sunburst")
+        model = body.get("model") or CFG.get("model", "gpt-image-2.6-sunburst")
         t0 = time.time()
         r = gen.probe(gen.build_opener(cfg), key, model)
         ms = round((time.time() - t0) * 1000)

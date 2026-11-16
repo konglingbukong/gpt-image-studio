@@ -1,6 +1,6 @@
 ---
 name: gpt-image
-description: Generate images with the official OpenAI gpt-image-2.5 API using the user's own API key — text-to-image, reference images, mask inpainting; 1K/2K/4K at any aspect ratio, quality low…max; saves locally and reports the cost of every run. Use when the user asks to generate / draw / create an image, poster, cover, portrait, character sheet or scene, or gives specs like 2K, 4K, 16:9, high, max. 用用户自己的 OpenAI key 出图（出图 / 生图 / 画一张 / 海报 / 封面 / 定妆照 / 四视图 / 场景图）。 Also use for “sync my balance” / “同步余额” with the studio MCP.
+description: Generate images with the official OpenAI Images API using the user's own API key — text-to-image, reference images, mask inpainting; 1K/2K/4K at any aspect ratio, quality low…max; saves locally and reports the cost of every run. Use when the user asks to generate / draw / create an image, poster, cover, portrait, character sheet or scene, or gives specs like 2K, 4K, 16:9, high, max. 用用户自己的 OpenAI key 出图（出图 / 生图 / 画一张 / 海报 / 封面 / 定妆照 / 四视图 / 场景图）。 Also use for “sync my balance” / “同步余额” with the studio MCP.
 ---
 
 # gpt-image: generate images with the official API
@@ -25,7 +25,7 @@ python <skill folder>/scripts/gen.py --prompt-file <p.txt> --size "2K 16:9" --qu
 |---|---|---|
 | `--size` | exact `2560x1440`; `1K`/`2K`/`4K` + ratio (e.g. `"2K 9:16"`); or `auto` | `2K 16:9` |
 | `--quality` | `low` `medium` `high` `xhigh` `max` `auto` | `high` |
-| `--model` | `gpt-image-2.5-sunburst` / `gpt-image-2.5-flare` | sunburst |
+| `--model` | GPT Image 2.6 or 2.5 (Sunburst / Flare), `gpt-image-2`, or `gpt-image-2-2026-04-21` | `gpt-image-2.6-sunburst` |
 | `--ref` | reference image path, repeatable (up to 16); uses the edits endpoint | none |
 | `--mask` | PNG mask, transparent = area to repaint; use with `--ref` | none |
 | `--n` | number of images | 1 |

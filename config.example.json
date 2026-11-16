@@ -2,7 +2,7 @@
   "api_key": "",
   "api_url": "https://api.openai.com/v1",
   "proxy": "",
-  "model": "gpt-image-2.5-sunburst",
+  "model": "gpt-image-2.6-sunburst",
   "size": "2K 16:9",
   "quality": "high",
   "format": "png",

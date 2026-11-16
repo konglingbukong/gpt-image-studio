@@ -1,6 +1,6 @@
 # gpt-image — instructions for AI agents
 
-This folder is an image generation tool: the user's own OpenAI API key + the official gpt-image-2.5 API. Full details are in `SKILL.md` in this folder. If `rules.local.md` exists (the user's personal preferences), read it first; it overrides this file where they conflict. Reply to the user in their own language.
+This folder is an image generation tool: the user's own OpenAI API key + the official OpenAI Images API. Full details are in `SKILL.md` in this folder. If `rules.local.md` exists (the user's personal preferences), read it first; it overrides this file where they conflict. Reply to the user in their own language.
 
 ## Three ways to use it — pick what your environment supports
 

@@ -1,4 +1,4 @@
-"""Generate images with the official OpenAI Images API (gpt-image-2.5). Python standard library only.
+"""Generate images with the official OpenAI Images API. Python standard library only.
 
 Examples:
   python gen.py --prompt-file p.txt --size "2K 16:9" --quality high --name cover
@@ -511,10 +511,10 @@ def running_marker(out_dir, stamp, name, params, n_refs, source):
 
 def main():
     cfg = load_config()
-    ap = argparse.ArgumentParser(description="Generate images with gpt-image-2.5")
+    ap = argparse.ArgumentParser(description="Generate images with OpenAI GPT Image")
     ap.add_argument("--prompt", help="prompt text (use --prompt-file for long prompts)")
     ap.add_argument("--prompt-file", help="UTF-8 text file containing the prompt")
-    ap.add_argument("--model", default=cfg.get("model", "gpt-image-2.5-sunburst"))
+    ap.add_argument("--model", default=cfg.get("model", "gpt-image-2.6-sunburst"))
     ap.add_argument("--size", default=cfg.get("size", "2K 16:9"), help="2560x1440 / '2K 16:9' / auto")
     ap.add_argument("--quality", default=cfg.get("quality", "high"), help="low / medium / high / xhigh / max / auto")
     ap.add_argument("--n", type=int, default=1, help="number of images")

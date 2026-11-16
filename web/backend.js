@@ -6,7 +6,7 @@
 const BB = (() => {
   const VERSION = "0.6.0";
   const DEF = {
-    api_url: "https://api.openai.com/v1", model: "gpt-image-2.5-sunburst", size: "2K 16:9", quality: "high",
+    api_url: "https://api.openai.com/v1", model: "gpt-image-2.6-sunburst", size: "2K 16:9", quality: "high",
     format: "png", moderation: "auto", low_balance_warn: 5, timeout: 900,
     confirm_over_usd: 0.5, clear_after_submit: false, rates: { text_in: 5, image_in: 8, image_out: 30, per_image: 0 },
   };

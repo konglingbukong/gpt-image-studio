@@ -395,7 +395,7 @@ body.mode-local .browser-only{display:none!important}
           <h3 data-i18n="habit.title"></h3>
           <div class="grid2">
             <div class="field"><label data-i18n="habit.model"></label><input class="inp" id="s_model" list="modelList">
-              <datalist id="modelList"><option value="gpt-image-2.5-sunburst"><option value="gpt-image-2.5-flare"></datalist></div>
+              <datalist id="modelList"></datalist></div>
             <div class="field"><label data-i18n="habit.size"></label><input class="inp" id="s_size" data-i18n-ph="ph.size"></div>
             <div class="field"><label data-i18n="habit.quality"></label><select class="inp" id="s_quality">
               <option>low</option><option>medium</option><option>high</option><option>xhigh</option><option>max</option><option>auto</option></select></div>
@@ -494,8 +494,16 @@ body.mode-local .browser-only{display:none!important}
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const TIERS=["1K","2K","4K"], RATIOS=["16:9","9:16","1:1","4:3","3:4","3:2","2:3","21:9"];
 const QUALS=["low","medium","high","xhigh","max","auto"];
-const MODELS=[["gpt-image-2.5-sunburst","model.sunburst"],["gpt-image-2.5-flare","model.flare"]];
-const st={tier:"2K",ratio:"16:9",quality:"high",model:"gpt-image-2.5-sunburst",n:1,refs:[],mask:null,busy:false};
+const MODELS=[
+  ["gpt-image-2.6-sunburst","model.sunburst"],
+  ["gpt-image-2.6-flare","model.flare"],
+  ["gpt-image-2.5-sunburst","model.sunburst"],
+  ["gpt-image-2.5-flare","model.flare"],
+  ["gpt-image-2","model.alias"],
+  ["gpt-image-2-2026-04-21","model.snapshot"],
+];
+for(const [model] of MODELS) $("#modelList").append(new Option(model,model));
+const st={tier:"2K",ratio:"16:9",quality:"high",model:"gpt-image-2.6-sunburst",n:1,refs:[],mask:null,busy:false};
 let S={}, HIST=[], CUR_SIZE="", BAL=null;
 
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -922,7 +930,7 @@ function fillSettings(){
   $("#ver").textContent="v"+S.version;
   for(const k of ["api_url","proxy","size","timeout","out_dir","low_balance_warn","confirm_over_usd"])$("#s_"+k).value=S[k]??"";
   for(const k of ["quality","format","moderation"])$("#s_"+k).value=S[k]||$("#s_"+k).options[0].value;
-  $("#s_model").value=S.model||"gpt-image-2.5-sunburst";
+  $("#s_model").value=S.model||"gpt-image-2.6-sunburst";
   $("#s_balance_source").value=S.balance_source||"auto";
   $("#s_minimal_params").classList.toggle("on",!!S.minimal_params);
   if(!S.api_url)$("#s_api_url").value="https://api.openai.com/v1";
@@ -974,7 +982,7 @@ $("#s_clear_after_submit").onclick=$("#s_minimal_params").onclick=e=>e.currentTa
 function collect(){
   const num=id=>{const v=$(id).value;return v===""?null:+v};
   const fxCode=$("#s_fx_code").value, fxRate=num("#s_fx_rate");
-  const b={api_url:$("#s_api_url").value.trim(),proxy:$("#s_proxy").value.trim(),model:$("#s_model").value.trim()||"gpt-image-2.5-sunburst",size:$("#s_size").value.trim()||"2K 16:9",
+  const b={api_url:$("#s_api_url").value.trim(),proxy:$("#s_proxy").value.trim(),model:$("#s_model").value.trim()||"gpt-image-2.6-sunburst",size:$("#s_size").value.trim()||"2K 16:9",
     quality:$("#s_quality").value,format:$("#s_format").value,moderation:$("#s_moderation").value,out_dir:$("#s_out_dir").value.trim(),
     fx_code:fxCode,fx_rate:fxRate,low_balance_warn:num("#s_low_balance_warn"),timeout:num("#s_timeout"),confirm_over_usd:num("#s_confirm_over_usd"),
     clear_after_submit:$("#s_clear_after_submit").classList.contains("on"),agent_name:$("#s_agent_name").value.trim(),

@@ -2,7 +2,7 @@
 
 **English** · [中文](README.zh-CN.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Русский](README.ru.md)
 
-**A workbench for OpenAI's `gpt-image-2.5` using your own API key. Ask your AI agent for an image in a single sentence, then watch it appear in a local web gallery with its cost and your remaining balance.**
+**A workbench for OpenAI's `gpt-image-2.6-sunburst` using your own API key. Ask your AI agent for an image in a single sentence, then watch it appear in a local web gallery with its cost and your remaining balance.**
 
 ![GPT Image Studio — gallery](docs/screenshot.png)
 
@@ -14,7 +14,7 @@
 
 - **Generate from any AI agent.** Ask Claude Code, Codex or another agent that can run commands for "a 2K 16:9 image of …". It calls the official API, saves the file locally and tells you what the image cost.
 - **Live web gallery.** While an agent is generating, a "generating…" card with a timer appears on the page, and the result replaces it when it's ready. You can also generate directly from the page.
-- **All the parameters.** gpt-image-2.5 sunburst / flare; 1K / 2K / 4K at any aspect ratio, up to 3840×2160; quality from `low` to **`xhigh` / `max`**; up to 16 reference images; mask inpainting.
+- **All the parameters.** GPT Image 2 · GPT Image 2.5 / 2.6 sunburst / flare; 1K / 2K / 4K at any aspect ratio, up to 3840×2160; quality from `low` to **`xhigh` / `max`**; up to 16 reference images; mask inpainting.
 - **Cost tracking.** The studio calculates each image's cost from its token usage and shows daily, monthly and lifetime totals. It subtracts subsequent spending from the last balance you synced or entered.
 - **Gallery tools.** Favorites, filters by status (completed / generating / failed), search, one-click reuse of settings, and "use as reference" to keep iterating on a result. Deleted items go to a `.trash` folder instead of being erased.
 - **Use it anywhere.** The same page can be hosted on GitHub Pages. On a computer that runs the local service it connects to that service automatically; anywhere else it runs in *browser mode*, where your key and images stay in that browser.
